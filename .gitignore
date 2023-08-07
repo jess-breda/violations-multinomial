@@ -1,3 +1,6 @@
+# rat data
+data/raw/rat_behavior.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
