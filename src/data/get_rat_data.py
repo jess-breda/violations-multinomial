@@ -28,13 +28,13 @@ def determine_data_path(mode="local"):
     return data_path
 
 
-def get_rat_viol_data(animal_id=None, mode="local"):
+def get_rat_viol_data(animal_ids=None, mode="local"):
     """
     Function to load the rat violation dataframe
 
     params
     ------
-    animal_id: str or list (default: None)
+    animal_ids: str or list (default: None)
         animal ids to return data for, will return
         all data if None
     mode: str (default: "local")
@@ -54,9 +54,9 @@ def get_rat_viol_data(animal_id=None, mode="local"):
 
     rat_df = pd.read_csv(data_path / file_name)
 
-    if animal_id:
-        print(f"returning data for {animal_id}")
-        rat_df = rat_df.query("animal_id == @animal_id").copy()
+    if animal_ids:
+        print(f"returning data for {animal_ids}")
+        rat_df = rat_df.query("animal_id == @animal_ids").copy()
         rat_df.reset_index(drop=True, inplace=True)
     else:
         print(f"returning dataset for all animals")
