@@ -192,6 +192,21 @@ def session_train_test_split(df, test_size, random_state=55):
 
 
 def generate_model_names(params):
+    taus = params["taus"]
+    names = []
+
+    for tau in taus:
+        if tau is None:
+            names.append("base")
+        else:
+            name = "t_" + "_".join(str(tau))
+            names.append(name)
+
+    params["names"] = names
+    return params
+
+
+def generate_model_names_mutli_tau(params):
     tausL = params["tausL"]
     names = []
 
