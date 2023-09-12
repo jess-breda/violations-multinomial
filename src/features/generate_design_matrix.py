@@ -90,7 +90,7 @@ class DesignMatrixGenerator:
         X["session"] = df.session
 
         # Apply exponential filter if tau is not None
-        if tau is not None:
+        if tau != 0:
             self.exp_filter = ExpFilter(
                 tau=tau, verbose=self.verbose, column=filter_column
             )
@@ -220,7 +220,7 @@ class ExpFilter:
         Function to apply exp kernel to a column given and
         entire dataframe on a session-by-session basis
         """
-        if self.tau is None:
+        if self.tau == 0:
             return
 
         if output_df is None:
