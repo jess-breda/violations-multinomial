@@ -209,11 +209,11 @@ class SigmaTauSearchExperiment:
 
         return None
 
-    def plot_tau_heatmap(self, df=None, vmin=10000, vmax=20000, cmap="Blues"):
+    def plot_tau_heatmap(self, df=None, vmin=None, vmax=None, cmap="Blues"):
         if df is None:
             df = self.create_pivot_for_tau_heatmap()
 
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig, ax = plt.subplots(figsize=(30, 30))
         sns.heatmap(df, annot=True, cmap=cmap, fmt=".2e", ax=ax, vmin=vmin, vmax=vmax)
 
         plt.title("NLL by Animal ID and Model")
