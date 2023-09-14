@@ -33,7 +33,7 @@ class SigmaTauSearchExperiment:
 
     def run(self):
         for animal in self.animals:
-            print(f"evaluating animal {animal}")
+            print(f"\n\n !!!!! evaluating animal {animal} !!!!!\n\n")
             if self.df.animal_id.nunique() > 1:
                 # Load in data for specific animal
                 animal_df = self.df.query("animal_id == @animal and training_stage > 2")
