@@ -29,7 +29,7 @@ class MultiClassLogisticRegression:
         return self.W
 
     def eval(self, X: pd.DataFrame, Y: np.ndarray):
-        return self._cost(self.W, X.to_numpy(), Y, sigma=0)
+        return self._cost(self.W, X.to_numpy(), Y, sigma=None)
 
     def _cost(self, W, X, Y, sigma):
         """
@@ -60,7 +60,7 @@ class MultiClassLogisticRegression:
 
         logits = X @ W
         penalty = (
-            1 / (2 * (sigma**2)) * np.trace(W[1:, :].T @ W[1:, :]) if sigma else 0
+            (1 / (2 * (sigma**2))) * np.trace(W[1:, :].T @ W[1:, :]) if sigma else 0
         )
         nll = (-np.sum(Y * logits) + np.sum(self._log_sum_exp(logits))) + penalty
         return nll
