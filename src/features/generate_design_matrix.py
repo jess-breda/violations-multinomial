@@ -54,6 +54,7 @@ class DesignMatrixGenerator:
         # Initialize
         X = pd.DataFrame()
         stim_cols = ["s_a", "s_b"]
+        X["session"] = df.session
 
         # Masks- if first trial in a session and/or previous trial
         # was a violation, "prev" variables get set to 0
@@ -62,6 +63,13 @@ class DesignMatrixGenerator:
             df["violation"].shift() * session_boundaries_mask
         ).fillna(0)
         prev_violation_mask = X["prev_violation"] == 0
+
+        # # Violation Exp Filter
+        self.exp_filter = ExpFilter(
+            tau=4, verbose=self.verbose, column="prev_violation"
+        )
+        self.exp_filter.apply_filter_to_dataframe(X)
+        X.drop(columns=["prev_violation"], inplace=True)
 
         # Stimuli (s_a, s_b) get normalized
         for col in stim_cols:
@@ -85,9 +93,11 @@ class DesignMatrixGenerator:
             * session_boundaries_mask
         )
 
+        # Prev rewarded
+        X["prev_rewarded"] = (df.hit.shift() * session_boundaries_mask).fillna(0)
+
         X.fillna(0, inplace=True)  # remove nan from shift()
         X.insert(0, "bias", 1)  # add bias column
-        X["session"] = df.session
 
         # Apply exponential filter if tau is not None
         if tau != 0:
