@@ -102,12 +102,7 @@ class DesignMatrixGeneratorFeatureComparison:
 
         # Prev rewarded
         X["prev_rewarded"] = (df.hit.shift() * session_boundaries_mask).fillna(0)
-
-        if feature_mode == "prev_reward_filter":
-            self.exp_filter = ExpFilter(
-                tau=1, verbose=self.verbose, column="prev_rewarded"
-            )
-            self.exp_filter.apply_filter_to_dataframe(X)
+        stage_3_mask = df["training_stage"] == 4
 
         if feature_mode == "prev_reward_inc_delay":
             # Prev delayed reward (error in stage 3)
@@ -120,7 +115,17 @@ class DesignMatrixGeneratorFeatureComparison:
             X.loc[condition, "prev_delayed_rewarded"] = 1
 
             X.drop(columns=["error", "prev_error", "prev_training_stage"], inplace=True)
-        elif feature_mode != "prev_reward":
+
+        if feature_mode == "prev_reward_filter" and feature_mode == "prev_reward":
+            X["prev_rewarded"] = X.prev_rewarded * stage_3_mask
+
+        if feature_mode == "prev_reward_filter":
+            self.exp_filter = ExpFilter(
+                tau=1, verbose=self.verbose, column="prev_rewarded"
+            )
+            self.exp_filter.apply_filter_to_dataframe(X)
+
+        if feature_mode != "prev_reward":
             X.drop(columns=["prev_rewarded"], inplace=True)
 
         X.fillna(0, inplace=True)  # remove nan from shift()
