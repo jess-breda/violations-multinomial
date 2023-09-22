@@ -208,6 +208,28 @@ class DesignMatrixGeneratorFeatureComparison:
 
         return X_train, X_test, Y_train, Y_test
 
+    def fit_null_model(self, animal_df):
+        """
+        Fit a null model to the data, where the probability of choosing
+        left, right or violation is equal to the proportion of each
+        choice in the test set.
+
+        Parameters:
+        -----------
+
+        """
+        # check if self.test_sessions exists
+        # if not, call get_train_test_sessions
+        if not hasattr(self, "test_sessions"):
+            self.get_train_test_sessions(self.df, self.test_size)
+
+        Y = self.one_hot_encode_labels(animal_df)
+        Y_test = Y[animal_df["session"].isin(self.test_sessions).values]
+
+        return Y_test
+
+        # Filter rows based on session values for X
+
 
 class ExpFilter:
     def __init__(self, tau, column="violation", len_factor=5, verbose=True):
