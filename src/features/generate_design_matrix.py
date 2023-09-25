@@ -207,6 +207,7 @@ class ExpFilter:
         fig, ax = plt.subplots(figsize=(6, 4))
         plt.plot(kernel)
         plt.title(f"Exponential filter kernel | Tau: {self.tau}")
+        plt.xlabel("Trial")
         plt.show()
 
     def apply_filter_to_session(self, session_df):

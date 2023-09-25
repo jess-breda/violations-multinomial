@@ -8,7 +8,12 @@ def plot_kernel_validation(df, kernel_column, reference_column="violation"):
     fig, ax = plt.subplots(figsize=(10, 3))
 
     # plot kernel
-    plt.plot(df[kernel_column] / df[kernel_column].max(), label="Filter", marker="o")
+    plt.plot(
+        df[kernel_column] / df[kernel_column].max(),
+        label="Filter",
+        marker="o",
+        color="gray",
+    )
 
     # Iterate through the prev_violation column and plot vertical lines when the value is 1
     for idx, value in df[reference_column].items():
