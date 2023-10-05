@@ -45,3 +45,37 @@ def plot_kernel_validation(df, kernel_column, reference_column="violation"):
     )
 
     return None
+
+
+def plot_simulated_weights_binary(true_w, optimized_w, title="Recovered Weights"):
+    """
+    Plot true and stimulated weights for a binary logistic regression model.
+
+    params
+    ------
+    true_w : np.ndarray, shape (D + 1, )
+        true weight vector used to simulate data
+    optimized_W : np.ndarray, shape (D + 1, )
+        estimated weight vector from scipy.optimize.minimize
+    title : str (default="Recovered Weights")
+    """
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    feature_and_bias_labels = np.arange(len(true_w))
+
+    ax.plot(feature_and_bias_labels, true_w, label="true", color="gray", marker="o")
+    ax.plot(
+        feature_and_bias_labels,
+        optimized_w,
+        label="optimized",
+        color="gray",
+        marker="o",
+        linestyle="dashed",
+    )
+
+    # Set the x-axis tick labels
+    _ = ax.set_xticks(feature_and_bias_labels)
+    ax.set(xlabel="Feature", ylabel="Weight", title=title)
+    ax.legend()
+
+    return None
