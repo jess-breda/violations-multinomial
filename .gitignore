@@ -1,5 +1,6 @@
 # rat data
 data/raw/rat_behavior.csv
+data/processed/all_data.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
