@@ -79,3 +79,27 @@ def plot_simulated_weights_binary(true_w, optimized_w, title="Recovered Weights"
     ax.legend()
 
     return None
+
+
+### For binary/multi comparision
+
+
+def are_dataframes_equal(df1, df2):
+    """
+    Function to make sure the 2 X_test dataframes are equal
+    for the binary and multi class post filtering the multi-class
+    data to only include L and R choices.
+    """
+    return df1.reset_index(drop=True).equals(df2.reset_index(drop=True))
+
+
+# Helper function to map multi-class labels to binary labels
+def map_multi_to_binary_labels(multi_labels):
+    """
+    Function to make sure y_test (binary) and Y_test (multi-class)
+    are equal for post filtering the multi-class data to only
+    include L and R choices, but keeping labels one-hot encoded.
+
+    Maps [0, 1, 0] to 1 and [1, 0, 0] to 0
+    """
+    return np.argmax(multi_labels, axis=1)
