@@ -29,8 +29,18 @@ class BinaryLogisticRegression:
         self.w = result.x
         return self.w
 
-    def eval(self, X: pd.DataFrame, y: np.ndarray):
-        return self.cost(self.w, X.to_numpy(), y, sigma=None)
+    def eval(self, X: pd.DataFrame, y: np.ndarray, lr_only=None):
+        """
+        Note the lr_only parameter is not used in this function
+        it is only included to match the function signature of
+        MultiClassLogisticRegression
+        """
+        if isinstance(X, pd.DataFrame):
+            X = X.to_numpy()
+
+        if lr_only is not None:
+            raise TypeError("lr_only is not used in this function, set to None!")
+        return self.cost(self.w, X, y, sigma=None)
 
     def cost(self, w, X, y, sigma):
         """
@@ -62,9 +72,9 @@ class BinaryLogisticRegression:
         else:
             penalty = 0
 
-        stable_log_term = np.vectorize(self.stable_log_one_plus_exp)(logits)
-        nll = -np.mean(y * logits - stable_log_term) + penalty
-
+        # stable_log_term = np.vectorize(self.stable_log_one_plus_exp)(logits)
+        # nll = -np.mean(y * logits - stable_log_term) + penalty
+        nll = -np.sum((y * logits) - np.logaddexp(0, logits)) - penalty
         return nll
 
     def _gradient(self, w, X, y, sigma):
@@ -92,13 +102,7 @@ class BinaryLogisticRegression:
 
         """
         logits = X @ w
-        # p = self.sigmoid(logits)
-
-        # Use stable_log_one_plus_exp to make the calculation numerically stable
-        stable_log_term = self.stable_log_one_plus_exp(-logits)
-
-        # Compute p in a stable way
-        p = np.exp(-stable_log_term)
+        probabilities = self.sigmoid(logits)
 
         if sigma:
             penalty_gradient = w / sigma**2
@@ -106,7 +110,8 @@ class BinaryLogisticRegression:
         else:
             penalty_gradient = 0
 
-        gradient = (np.dot(X.T, (p - y)) / len(y)) + penalty_gradient
+        gradient = -X.T @ (y - probabilities) + penalty_gradient
+        # gradient = (np.dot(X.T, (p - y)) / len(y)) + penalty_gradient
         return gradient
 
     @staticmethod
@@ -179,3 +184,29 @@ class BinaryLogisticRegression:
         print(f"w has mean {np.mean(w):.3f} and std {np.std(w):.3f}")
 
         return w, X, y
+
+    def check_gradient(self, N, D, epsilon=1e-5):
+        # Generate a small random data set
+        w, X, y = self.generate_data(N, D, self.sigma)
+        print(
+            f"Checking gradient with {N} samples and {D} features and sigma={self.sigma}"
+        )
+
+        # Analytical gradient
+        analytical_grad = self._gradient(w, X, y, self.sigma)
+
+        # Numerical gradient
+        numerical_grad = np.zeros_like(w)
+        for i in range(len(w)):
+            w1, w2 = np.copy(w), np.copy(w)
+            w1[i] += epsilon
+            w2[i] -= epsilon
+            numerical_grad[i] = (
+                self.cost(w1, X, y, self.sigma) - self.cost(w2, X, y, self.sigma)
+            ) / (2 * epsilon)
+
+        # Compare
+        diff = np.linalg.norm(analytical_grad - numerical_grad) / (
+            np.linalg.norm(analytical_grad) + np.linalg.norm(numerical_grad)
+        )
+        print(f"Gradient check difference: {diff}")
