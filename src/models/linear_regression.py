@@ -61,3 +61,73 @@ def plot_predictions(ax, predictor, predictions, title):
         ylabel="Predicted",
         title=title,
     )
+
+
+def univariate_linear_regression(df, x, y, print_results=True):
+    """
+    Performs univariate linear regression on given data.
+
+    params
+    -------
+    df: pd.DataFrame
+        Dataframe containing the data.
+    x: str
+        Name of the feature to be used as predictor.
+    y: str
+        Name of the feature to be used as target.
+
+    Returns:
+    - results (RegressionResults): Fitted regression model results.
+    """
+
+    X = df[x].values.reshape(-1, 1)
+    y = df[y].values.reshape(-1, 1)
+    X = sm.add_constant(X)
+
+    model = sm.OLS(y, X)
+    results = model.fit()
+
+    if print_results:
+        print(results.summary())
+
+    return results
+
+
+def plot_univariate_linear_regression(results, ax=None, **kwargs):
+    """
+    Plots the linear regression model and data points.
+
+    Parameters:
+    - results (RegressionResults): Fitted regression model results.
+    - ax (matplotlib axis, optional): Axis on which to plot.
+    - kwargs (dict): Additional settings for plot axis.
+
+    Returns:
+    - ax (matplotlib axis): Axis containing the plot.
+    """
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 8))
+
+    slope = results.params[1]
+    intercept = results.params[0]
+
+    # Get x and y data from the results
+    x_data = results.model.exog[:, 1]
+    y_data = results.model.endog
+
+    # Determine the range for the line model
+    x_line = np.linspace(min(x_data) * 0.5, max(x_data) * 1.5, 100)
+    y_line = slope * x_line + intercept
+
+    ax.scatter(x_data, y_data, color="black", label="Data")
+    ax.plot(x_line, y_line, color="red", label="Regression Line")
+
+    # Set axis limits, labels, title etc. based on kwargs
+    ax.set(**kwargs)
+
+    # Add text to upper right corner
+    xlim, ylim = ax.get_xlim(), ax.get_ylim()
+    ax.text(xlim[1] * 0.75, ylim[1] * 0.75, f"$R^2$ = {results.rsquared_adj:.2f}")
+
+    return ax
