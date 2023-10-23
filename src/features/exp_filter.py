@@ -1,15 +1,30 @@
-"Class for applying exponential filter to a column of a dataframe"
-
 import numpy as np
 import matplotlib.pyplot as plt
 
 
 class ExpFilter:
-    def __init__(self, tau, column="violation", len_factor=5, verbose=True):
+    def __init__(self, tau, column, verbose=True, len_factor=5):
+        """
+        An exponential filter that can be applied to a column
+        of a dataframe. The filter is applied to each session
+        independently and then scaled across all sessions.
+
+        params
+        ------
+        tau : int
+            time constant for exponential decay
+        column : str
+            column to apply filter to
+        verbose : bool, (default=True)
+            whether to print out progress
+        len_factor : int, (default=5)
+            factor to multiply tau by to get length of kernel. 5
+            allows for full decay of kernel
+        """
         self.tau = tau
         self.column = column
-        self.len_factor = len_factor
         self.verbose = verbose
+        self.len_factor = len_factor
 
     def create_kernel(self):
         """
@@ -22,6 +37,10 @@ class ExpFilter:
         )
 
     def plot_kernel(self):
+        """
+        plot the kernel created by create_kernel given the
+        current tau value and len_factor
+        """
         kernel = self.create_kernel()
         fig, ax = plt.subplots(figsize=(6, 4))
         plt.plot(kernel)
@@ -31,8 +50,21 @@ class ExpFilter:
 
     def apply_filter_to_session(self, session_df):
         """
-        apply kernel to individual sessions for independent
-        filtering of column history
+        Apply kernel to individual sessions for independent
+        filtering of column history. This is done by convolving
+        the kernel with the column of interest and then
+        truncating the result to the length of the session.
+
+        params
+        ------
+        session_df : pd.DataFrame
+            dataframe containing data for a single session
+
+        returns
+        -------
+        session_df : pd.DataFrame
+            dataframe with new column containing filtered
+            column of interest indicated by column_exp_tau
         """
         kernel = self.create_kernel()
 
@@ -47,14 +79,33 @@ class ExpFilter:
 
     def apply_filter_to_dataframe(self, source_df, output_df=None):
         """
-        Function to apply exp kernel to a column given and
-        entire dataframe on a session-by-session basis
+        Apply filter to all sessions in a dataframe. This is done
+        by applying the filter to each session individually and then
+        scaling across all sessions
+
+        params
+        ------
+        source_df : pd.DataFrame
+            dataframe containing data for all sessions and column
+            to filter
+        output_df : pd.DataFrame, default=None
+            dataframe to add new column to. If None, the column
+            will be added to a copy of source_df.
+
+        returns
+        -------
+        output_df : pd.DataFrame
+            dataframe with new column containing filtered
+            column of interest indicated by column_exp_tau
         """
+        if not self.column in source_df.columns:
+            raise ValueError(f"{self.column} column not found in X!")
+
         if self.tau == 0:
             return
 
         if output_df is None:
-            output_df = source_df
+            output_df = source_df.copy()
 
         for session_id, session_data in source_df.groupby("session"):
             filtered_session = self.apply_filter_to_session(session_data.copy())
@@ -71,3 +122,5 @@ class ExpFilter:
         output_df[f"{self.column}_exp_{self.tau}"] /= output_df[
             f"{self.column}_exp_{self.tau}"
         ].max()
+
+        return output_df
