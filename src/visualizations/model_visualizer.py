@@ -4,12 +4,135 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-class ModelVisualizerSweeps:
+class ModelVisualizer:
     def __init__(self, experiment):
-        self.model_fits = experiment.model_fits
+        self.experiment = experiment
+        self.fit_models = experiment.fit_models
 
-    ## Plotting Functions ##
+        self._init_config_dtypes_()
 
+    def _init_config_dtypes_(self):
+        cat_columns = ["model_name", "animal_id"]
+        self.fit_models[cat_columns] = self.fit_models[cat_columns].astype("category")
+        int_columns = ["n_test_trials", "n_train_trials"]
+        self.fit_models[int_columns] = self.fit_models[int_columns].astype(int)
+        float_columns = ["nll", "sigma", "tau"]
+        self.fit_models[float_columns] = self.fit_models[float_columns].astype(float)
+
+        return None
+
+    # DF HELPERS
+    def find_best_fit(self, group="animal_id"):
+        """
+        Find the best fit for a given group. For example,
+        if search over sigma and taus and group is "tau",
+        this function will return the best sigma fit for
+        each animal, tau.
+
+        If you just want the best fit over all parameters,
+        or you only swept over one parameter, group by animal_id.
+
+        params
+        ------
+        group: str (default: "tau")
+            group to find best fit for
+
+
+        returns
+        -------
+        best_fit_df: pd.DataFrame
+            dataframe containing the best fit for each
+            animal, group (or just each animal if group is "animal_id")
+        """
+
+        if group == "animal_id":
+            best_idx = self.fit_models.groupby("animal_id").nll.idxmin()
+            return self.fit_models.loc[best_idx].copy().reset_index(drop=True)
+
+        else:
+            best_fit_dfs = []
+            for _, sub_df in self.fit_models.groupby(["animal_id"]):
+                best_idx = sub_df.groupby(group)["nll"].idxmin()
+                best_fit_df = sub_df.loc[best_idx]
+                best_fit_dfs.append(best_fit_df)
+            return pd.concat(best_fit_dfs, ignore_index=True)
+
+    def unpack_features_and_weights(self, df=None):
+        """
+        Unpacks the "feature" and "weight" columns of a row
+        to crete a long-form dataframe where each row corresponds
+        to a animal_id, feature, class weight.
+
+        params
+        ------
+        df : pd.DataFrame
+            A pandas DataFrame with "feature" and "weight"
+            columns as arrays. Note the weight column can be
+            a 1d (binary model) or 2d (mutliclass model)
+
+        returns
+        -------
+        melted_df : pd.DataFrame
+            A long-form pandas DataFrame where each row corresponds
+            to a animal_id, feature, class weight.
+        """
+        if df is None:
+            df = self.find_best_fit(group="animal_id")
+
+        # creates df where each row corresponds to a animal_feature
+        unpacked_df = pd.concat(
+            df.apply(self.unpack_row, axis=1).tolist(), ignore_index=True
+        )
+
+        melted_df = pd.melt(
+            unpacked_df,
+            id_vars=["animal_id", "sigma", "tau", "model_name", "nll", "feature"],
+            var_name="weight_class",
+            value_name="weight",
+        )
+
+        return melted_df
+
+    @staticmethod
+    def unpack_row(row):
+        """
+        Unpacks the "feature" and "weight" columns of a row
+        to crete a long-form dataframe where each row corresponds
+        to a animal_id, feature. Note this function is flexible
+        to the number of classes
+
+        params
+        ------
+        row : pd.Series
+            A row of a pandas DataFrame with "feature" and "weight"
+            columns as arrays.
+        """
+
+        n_classes = row["weights"].shape[1]
+        temp_df = pd.DataFrame(
+            {
+                "animal_id": row["animal_id"],
+                "sigma": row["sigma"],
+                "tau": row["tau"],
+                "model_name": row["model_name"],
+                "nll": row["nll"],
+                "feature": row["features"],
+            }
+        )
+
+        if n_classes == 3:
+            class_names = ["L", "R", "V"]
+        else:
+            class_names = [f"weight_class_{i+1}" for i in range(n_classes)]
+
+        for i in range(n_classes):
+            temp_df[class_names[i]] = row["weights"][:, i]
+
+        return temp_df
+
+    # PLOTS
+
+    ## SIGMAS
     def plot_nll_over_sigmas_by_animal(self, df=None):
         """
         Plot the test NLL for each sigma value for each animal
@@ -65,140 +188,207 @@ class ModelVisualizerSweeps:
 
         return None
 
-    def plot_weights_by_animal(self, df=None):
-        if df is None:
-            df = self.find_best_fit(group="animal_id")
-
-        n_animals = df.animal_id.nunique()
-        fig, ax = plt.subplots(
-            n_animals, 1, figsize=(10, 5 * n_animals), sharex=True, sharey=True
-        )
-
-        for i, animal in enumerate(df.animal_id.unique()):
-            animal_df = df.query("animal_id == @animal")
-            self.plot_weights(
-                animal_df.features.values[0],
-                animal_df.weights.values[0],
-                ax=ax[i],
-            )
-            ax[i].set_title(f"Animal {animal}, sigma = {animal_df.sigma.values[0]}")
-
-    def plot_weights_across_animals(self, hue=None, df=None, ax=None):
-        # Step 1: Find the best fit DataFrame for each animal
-        if df is None:
-            df = self.find_best_fit(group="animal_id")
-
-        # Step 2 & 3: Prepare the data for seaborn
-        plot_data = []
-        for _, row in df.iterrows():
-            features = row["features"]
-            weights = row["weights"]
-            animal_id = row["animal_id"]
-
-            for feature, weight in zip(features, weights):
-                plot_data.append(
-                    {"Feature": feature, "Weight": weight, "Animal": animal_id}
-                )
-
-        df_plot = pd.DataFrame(plot_data)
-
-        # Plot using seaborn
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(10, 5))
-        sns.barplot(
-            x="Feature",
-            y="Weight",
-            hue=hue,
-            data=df_plot,
-            color="cornflowerblue",
-            ax=ax,
-        )
-        ax.axhline(0, color="black")
-
-        ax.set(
-            xlabel="Feature",
-            ylabel="Weight Value",
-            title="Weight by Feature Across Animals",
-        )
-        plt.xticks(rotation=45)
-
-    @staticmethod
-    def plot_weights_binary(X, w, ax=None, title=None):
+    def plot_best_sigma_counts(self, df=None, ax=None):
         """
-        Plots the weights for each column in the design matrix X.
-
-        Parameters:
-        X (numpy.ndarray): The design matrix with shape (m, n)
-        w (numpy.ndarray): The weight vector with shape (n,)
-
-        """
-
-        # if X is a df, grab the columns
-        if isinstance(X, pd.DataFrame):
-            X = X.columns
-
-        if len(X) != len(w):
-            raise ValueError("The number of columns in X must match the length of w.")
-        # plot
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(6, 4))
-
-        ax.bar(X, w)
-        ax.axhline(0, color="black")
-
-        # aesthetics
-        plt.xticks(rotation=45)
-        ax.set(
-            xlabel="Feature",
-            ylabel="Weight Value",
-            title="Weight by Feature" if None else title,
-        )
-
-    ## Wranlging Functions ##
-
-    def find_best_fit(self, group="model_name"):
-        """
-        Find the best fit for a given group. For example,
-        if search over sigma and taus and group is "tau",
-        this function will return the best sigma fit for
-        each animal, tau.
-
-        If you just want the best fit, group by "model_name"
-        or "animal_id"
+        Plot count across the best sigmas for each animal in
+        an experiment
 
         params
         ------
-        group: str (default: "tau")
-            group to find best fit for
-
-
-        returns
-        -------
-        best_fit_df: pd.DataFrame
-            dataframe containing the best fit for each
-            animal, group
+        df: pd.DataFrame (default=None)
+            dataframe containing the results of the experiment
+            grouped by animal_id. if None, will calculate it.
         """
 
-        best_fit_dfs = []
+        if df is None:
+            df = self.find_best_fit(group="animal_id")
 
-        for animal_id, sub_df in self.model_fits.groupby(["animal_id"]):
-            best_idx = sub_df.groupby(group)["nll"].idxmin()
-            best_fit_df = sub_df.loc[best_idx]
-            best_fit_dfs.append(best_fit_df)
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(8, 5))
 
-        return pd.concat(best_fit_dfs, ignore_index=True)
+        sns.countplot(data=df, x="sigma", color="gray", ax=ax)
+        _ = ax.set(xlabel="Best sigma", ylabel="Number of animals")
 
-    # Plot weights for the best fit model by animal
+        return None
 
-    # def query_min_nll(self, df=None):
-    #     """
-    #     Query the row with the minimum NLL for a given animal_id and model_name
-    #     """
-    #     query = self.model_fits.query(
-    #         "animal_id == @animal_id and model_name == @model_name"
-    #     ).sort_values(by="nll", ascending=True)
+    def plot_best_sigma_by_animal(self, df=None, ax=None):
+        """
+        Plot animal id by best sigma
 
-    #     return query.iloc[0]
+        params
+        ------
+        df: pd.DataFrame (default=None)
+            dataframe containing the results of the experiment
+            grouped by animal_id. if None, will calculate it.
+        """
+
+        if df is None:
+            df = self.find_best_fit(group="animal_id")
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(8, 5))
+
+        sns.pointplot(
+            data=df, x="animal_id", y="sigma", ax=ax, join=False, hue="animal_id"
+        )
+
+        _ = ax.set_xticks(
+            ax.get_xticks(), ax.get_xticklabels(), rotation=90, ha="right"
+        )
+        _ = ax.set(ylabel="Best sigma", xlabel="")
+        ax.get_legend().set_visible(False)
+
+        return None
+
+    def plot_sigma_summary(self):
+        """
+        Wrapper function around plot_best_sigma_by_animal()
+        and plot_best_sigma_counts()
+        """
+
+        df = self.find_best_fit(group="animal_id")
+
+        fig, ax = plt.subplots(1, 2, figsize=(16, 5))
+        self.plot_best_sigma_by_animal(df=df, ax=ax[0])
+        self.plot_best_sigma_counts(df=df, ax=ax[1])
+
+        plt.suptitle("Fit Sigma Summary")
+
+        return None
+
+    ## WEIGHTS
+    @staticmethod
+    def plot_weights(df, ax, title="", **kwargs):
+        """
+        Workhorse function for plotting weights across features
+        and classes.
+
+        params
+        ------
+        df : pd.DataFrame
+            dataframe with columns "feature", "weight_class", "weight"
+            row indexed by animal id, feature and weight class
+            created by unpack_features_and_weights()
+        ax : matplotlib axis
+            axis to plot on.
+        title : str (default="")
+            title of plot
+        kwargs : dict
+            additional keyword arguments to pass to seaborn.barplot()
+        """
+
+        sns.barplot(
+            x="feature", y="weight", hue="weight_class", data=df, ax=ax, **kwargs
+        )
+        ax.axhline(y=0, color="black")
+
+        _ = ax.set_xticks(
+            ax.get_xticks(), ax.get_xticklabels(), rotation=45, ha="right"
+        )
+        _ = ax.set(xlabel="", ylabel="Weight", title=title)
+
+        return None
+
+    def plot_weights_by_animal(self, df=None, **kwargs):
+        """
+        Wrapper around plot_weights to plot the weights for each
+        animal in the experiment.
+
+        params
+        ------
+        df : pd.DataFrame (default=None)
+            dataframe with columns "feature", "weight_class", "weight"
+            row indexed by animal id, feature and weight class
+            created by unpack_features_and_weights()
+        kwargs : dict
+            additional keyword arguments to pass to seaborn.barplot()
+        """
+        if df is None:
+            df = self.unpack_features_and_weights()
+
+        n_animals = df.animal_id.nunique()
+        fig, ax = plt.subplots(
+            n_animals, 1, figsize=(12, 6 * n_animals), sharex=True, sharey=True
+        )
+
+        for i, (animal_id, df_animal) in enumerate(df.groupby("animal_id")):
+            self.plot_weights(
+                df_animal, ax=ax[i], title=f"Animal {animal_id}", **kwargs
+            )
+
+    def plot_weights_summary(self, df=None, ax=None, animal_id=None, **kwargs):
+        """
+        Wrapper around plot_weights to plot weights for all
+        animals in the experiment with variance indicated on plot.
+
+        params
+        ------
+        df : pd.DataFrame (default=None)
+            dataframe with columns "feature", "weight_class", "weight"
+            row indexed by animal id, feature and weight class
+            created by unpack_features_and_weights()
+        animal_id : str (default=None)
+            animal id to plot weights for. if None, will plot
+            weights for all animals
+        ax : matplotlib axis (default=None)
+            axis to plot on. if None, plot_weights() will create a
+            new figure
+        kwargs : dict
+            additional keyword arguments to pass to seaborn.barplot()
+        """
+
+        if df is None:
+            df = self.unpack_features_and_weights()
+
+        if animal_id is not None:
+            df = df.query("animal_id == @animal_id")
+            title = f"Animal {animal_id}"
+        else:
+            title = "All animals"
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(12, 6))
+
+        self.plot_weights(df, ax, title=title, **kwargs)
+
+        return None
+
+
+# class ModelVisualizerSigmaSweeps(ModelVisualizer):
+#     def __init__(self, experiment):
+#         super().__init__(experiment)
+
+#     @staticmethod
+#     def plot_weights_binary(X, w, ax=None, title=None):
+# """
+# Plots the weights for each column in the design matrix X.
+
+# Parameters:
+# X (numpy.ndarray): The design matrix with shape (m, n)
+# w (numpy.ndarray): The weight vector with shape (n,)
+
+# """
+
+# # if X is a df, grab the columns
+# if isinstance(X, pd.DataFrame):
+#     X = X.columns
+
+# if len(X) != len(w):
+#     raise ValueError("The number of columns in X must match the length of w.")
+# # plot
+# if ax is None:
+#     fig, ax = plt.subplots(figsize=(6, 4))
+
+# ax.bar(X, w)
+# ax.axhline(0, color="black")
+
+# # aesthetics
+# plt.xticks(rotation=45)
+# ax.set(
+#     xlabel="Feature",
+#     ylabel="Weight Value",
+#     title="Weight by Feature" if None else title,
+# )
 
 
 class ModelVisualizerCompare:
