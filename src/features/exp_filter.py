@@ -73,7 +73,7 @@ class ExpFilter:
             : len(session_df)
         ]
 
-        session_df[f"{self.column}_exp_{self.tau}"] = convolution_result
+        session_df[f"{self.column}_exp"] = convolution_result
 
         return session_df
 
@@ -110,8 +110,8 @@ class ExpFilter:
         for session_id, session_data in source_df.groupby("session"):
             filtered_session = self.apply_filter_to_session(session_data.copy())
             output_df.loc[
-                output_df["session"] == session_id, f"{self.column}_exp_{self.tau}"
-            ] = filtered_session[f"{self.column}_exp_{self.tau}"]
+                output_df["session"] == session_id, f"{self.column}_exp"
+            ] = filtered_session[f"{self.column}_exp"]
 
             if self.verbose:
                 print(
@@ -119,8 +119,6 @@ class ExpFilter:
                 )
 
         # scale column by max to bound between 0 and 1
-        output_df[f"{self.column}_exp_{self.tau}"] /= output_df[
-            f"{self.column}_exp_{self.tau}"
-        ].max()
+        output_df[f"{self.column}_exp"] /= output_df[f"{self.column}_exp"].max()
 
         return output_df
