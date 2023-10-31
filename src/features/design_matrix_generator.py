@@ -286,13 +286,13 @@ class DesignMatrixGeneratorInteractions(DesignMatrixGenerator):
 
         returns
         -------
-        X  : pd.DataFrame (N x D)
+        X  : pd.DataFrame (N, D + 2, bias + session id)
             design matrix with columns `s_a` `s_b` `prev_stimuli`
             `prev_correct_side` `prev_choice` and `session` for
             train/test split. Interaction columns added for each "interaction_pair"
             and exp filter applied to `filter_column`
 
-        y : np.array (N x C) if multi, N x 1 if binary
+        y : np.array (N,C) if multi, (N, 1) if binary
             labels for design matrix, where C is the number of classes
         """
 
