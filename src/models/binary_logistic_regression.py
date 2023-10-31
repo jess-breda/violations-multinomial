@@ -72,8 +72,6 @@ class BinaryLogisticRegression:
         else:
             penalty = 0
 
-        # stable_log_term = np.vectorize(self.stable_log_one_plus_exp)(logits)
-        # nll = -np.mean(y * logits - stable_log_term) + penalty
         nll = -np.sum((y * logits) - np.logaddexp(0, logits)) - penalty
         return nll
 
@@ -111,7 +109,6 @@ class BinaryLogisticRegression:
             penalty_gradient = 0
 
         gradient = -X.T @ (y - probabilities) + penalty_gradient
-        # gradient = (np.dot(X.T, (p - y)) / len(y)) + penalty_gradient
         return gradient
 
     @staticmethod
