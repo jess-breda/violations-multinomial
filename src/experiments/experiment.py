@@ -35,7 +35,7 @@ class Experiment:
         self.animals = params["animals"]
         self.sigmas = params["sigmas"]
         self.df = get_rat_viol_data(animal_ids=self.animals)
-        self.taus = get_taus_df()
+        self.taus_df = get_taus_df()
         self.random_state = params.get("random_state", 23)
         self.test_size = params.get("test_size", 0.2)
         self.null_models = []
@@ -45,7 +45,7 @@ class Experiment:
             self.animals = self.df.animal_id.unique()
         self.n_animals = len(self.animals)
 
-    def generate_design_matrix_for_animal(self, animal_df, violation_tau, model_name):
+    def generate_design_matrix_for_animal(self, animal_df, filter_params, model_name):
         """
         Function to generate the design matrix and labels
         with the given animal data and tau and the model configs
@@ -56,21 +56,18 @@ class Experiment:
         animal_df : pd.DataFrame
             dataframe of animal data for a single animal to generate
             design matrix from
-        violation_tau : float
-            tau value for the animal for prev_violation history
+        filter_params : dict
+            dictionary with keys, value pairs indicating the column
+            to filter and the tau to filter with. For example,
+            {"prev_violation": 2} will filter the prev_violation
+            column with a tau of 2.
 
         returns
         -------
         X : pd.DataFrame (N, D + 2, bias & session)
             design matrix for the animal
         y : np.ndarray (N,C) if multi, (N,1) if binary model type
-            labels for the anima
-
-        TODO clean up tau naming etc. for example in interactions design matrix
-        TODO the column for exp filter is flexible but now passing in a tau
-        TODO specific to violations. consider changing to tau_args that is a dict
-        TODO in the form {"filter_column": tau_value} and dmg handles this internally
-        TODO this will require get_taus_df to be able to unpack multiple columns
+            labels for the animal
         """
         # Determine class for design matrix generator e.g. DesignMatrixGeneratorInteractions
         design_matrix_generator_class = self.model_config[model_name][
@@ -89,7 +86,7 @@ class Experiment:
 
         # Generate design matrix (X) and labels (y) given args & model_type
         X, y = design_matrix_generator.generate_design_matrix(
-            df=animal_df, tau=violation_tau, **design_matrix_args
+            df=animal_df, filter_params=filter_params, **design_matrix_args
         )
 
         return X, y
@@ -157,6 +154,7 @@ class Experiment:
             weights for the model
         nll : float
             negative log likelihood of the model
+        # TODO add in lr only flag
         """
 
         # Initialize model e.g. MultiLogisticRegression(sigma=sigma)
@@ -164,7 +162,7 @@ class Experiment:
 
         # fit & eval model
         W_fit = model.fit(X_train, Y_train)
-        nll = model.eval(X_test, Y_test)
+        nll = model.eval(X_test, Y_test)  # lr only here!!!
 
         return W_fit, nll
 

@@ -8,6 +8,7 @@ class ModelVisualizer:
     def __init__(self, experiment):
         self.experiment = experiment
         self.fit_models = experiment.fit_models
+        self.tau_columns = self.fit_models.filter(like="tau").columns.to_list()
         self._init_config_dtypes_()
 
     def _init_config_dtypes_(self):
@@ -21,7 +22,7 @@ class ModelVisualizer:
         int_columns = ["n_test_trials", "n_train_trials"]
         self.fit_models[int_columns] = self.fit_models[int_columns].astype(int)
 
-        float_columns = ["nll", "sigma", "tau"]
+        float_columns = ["nll", "sigma"] + self.tau_columns
         self.fit_models[float_columns] = self.fit_models[float_columns].astype(float)
 
         return None
@@ -39,7 +40,7 @@ class ModelVisualizer:
 
         params
         ------
-        group: str (default: "tau")
+        group: str (default: "animal_id")
             group to find best fit for
 
 
@@ -58,7 +59,7 @@ class ModelVisualizer:
             best_fit_dfs = []
             for _, sub_df in self.fit_models.groupby(["animal_id"]):
                 best_idx = sub_df.groupby(group)["nll"].idxmin()
-                best_fit_df = sub_df.loc[best_idx]
+                best_fit_df = sub_df.loc[best_idx.dropna()]
                 best_fit_dfs.append(best_fit_df)
             return pd.concat(best_fit_dfs, ignore_index=True)
 
@@ -91,15 +92,15 @@ class ModelVisualizer:
 
         melted_df = pd.melt(
             unpacked_df,
-            id_vars=["animal_id", "sigma", "tau", "model_name", "nll", "feature"],
+            id_vars=["animal_id", "sigma", "model_name", "nll", "feature"]
+            + self.tau_columns,
             var_name="weight_class",
             value_name="weight",
         )
 
         return melted_df
 
-    @staticmethod
-    def unpack_row(row):
+    def unpack_row(self, row):
         """
         Unpacks the "feature" and "weight" columns of a row
         to crete a long-form dataframe where each row corresponds
@@ -114,16 +115,20 @@ class ModelVisualizer:
         """
 
         n_classes = row["weights"].shape[1]
+
+        tau_cols = row.filter(like="tau").index.to_list()
         temp_df = pd.DataFrame(
             {
                 "animal_id": row["animal_id"],
                 "sigma": row["sigma"],
-                "tau": row["tau"],
                 "model_name": row["model_name"],
                 "nll": row["nll"],
                 "feature": row["features"],
             }
         )
+
+        for tau_col in tau_cols:
+            temp_df[tau_col] = row[tau_col]
 
         if n_classes == 3:
             class_names = ["L", "R", "V"]
@@ -140,7 +145,7 @@ class ModelVisualizer:
     ## SIGMAS
     def plot_nll_over_sigmas_by_animal(self, group="sigma", df=None, **kwargs):
         """
-        Plot the test NLL for each sigma value for each animal
+        Plot the test NLL for each sigma value for id animal
         in the experiment. Minimum is marked in red.
 
         params
@@ -185,7 +190,10 @@ class ModelVisualizer:
             )
 
             current_ax.axvline(
-                sub_df[sub_df.is_min].sigma.values, color="red", linestyle="--"
+                sub_df[sub_df.is_min].sigma.values,
+                color="red",
+                linestyle="--",
+                label="min",
             )
 
             # aesthetics
@@ -370,6 +378,168 @@ class ModelVisualizer:
             fig, ax = plt.subplots(figsize=(12, 6))
 
         self.plot_weights(df, ax, title=title, **kwargs)
+
+        return None
+
+
+from model_visualizer import ModelVisualizer
+
+
+class ModelVisualizerTauSweep(ModelVisualizer):
+    """
+    Model class with additional methods for visualizing
+    the results of a tau sweep experiment
+    """
+
+    def __init__(self, experiment):
+        super().__init__(experiment)
+        self.sweep_column = f"{experiment.sweep_column}_tau"
+
+    ## TAUS
+    def plot_nll_over_taus_by_animal(self, group="tau", df=None, **kwargs):
+        """
+        Plot the test NLL for each tau value for each animal
+        in the experiment. Minimum is marked in red.
+
+        params
+        ------
+        group: str (default: "tau")
+            group to find best fit for, default will collapse over
+            all other parameters to animal_id, tau
+        df: pd.DataFrame (default=None)
+            dataframe containing the results of the experiment
+            grouped by sigma. if None, will calculate it.
+        kwargs: dict
+            additional keyword arguments to pass to seaborn.lineplot()
+
+        """
+
+        if df is None:
+            assert group == "tau", "function specialized for tau grouping!"
+            group = self.sweep_column
+            df = self.find_best_fit(group=group)
+
+        n_animals = df.animal_id.nunique()
+        fig, ax = plt.subplots(
+            n_animals, 1, figsize=(15, 5 * n_animals), sharex=False, sharey=False
+        )
+
+        df["is_min"] = df.groupby("animal_id")["nll"].transform(lambda x: x == x.min())
+
+        if n_animals == 1:
+            ax = [ax]
+
+        for idx, (animal_id, sub_df) in enumerate(df.groupby("animal_id")):
+            plt.xticks(rotation=90)
+
+            current_ax = ax[idx] if n_animals > 1 else ax[0]
+
+            sns.lineplot(
+                x=self.sweep_column,
+                y="nll",
+                data=sub_df,
+                ax=current_ax,
+                marker="o",
+                **kwargs,
+            )
+
+            current_ax.axvline(
+                sub_df[sub_df.is_min][self.sweep_column].values,
+                color="red",
+                linestyle="--",
+                label="Min",
+            )
+
+            # aesthetics
+            plt.xticks(rotation=90)
+            sns.despine()
+            current_ax.set(
+                ylabel="Test NLL",
+                title=f"Animal {animal_id}",
+            )
+            # if on the last plot, add the x-axis label
+            if idx == n_animals - 1:
+                current_ax.set(xlabel="Tau")
+            else:
+                current_ax.set(xlabel="")
+                current_ax.legend().remove()
+
+        return None
+
+    def plot_best_tau_counts(self, df=None, ax=None):
+        """
+        Plot count across the best taus for each animal in
+        an experiment
+
+        params
+        ------
+        df: pd.DataFrame (default=None)
+            dataframe containing the results of the experiment
+            grouped by animal_id. if None, will calculate it.
+        """
+
+        if df is None:
+            df = self.find_best_fit(group="animal_id")
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(8, 5))
+
+        sns.countplot(data=df, x=self.sweep_column, color="gray", ax=ax)
+        _ = ax.set(xlabel="Best Tau", ylabel="Number of animals")
+
+        return None
+
+    def plot_best_tau_by_animal(self, df=None, ax=None):
+        """
+        Plot animal id by best tau
+
+        params
+        ------
+        df: pd.DataFrame (default=None)
+            dataframe containing the results of the experiment
+            grouped by animal_id. if None, will calculate it.
+        """
+
+        if df is None:
+            df = self.find_best_fit(group="animal_id")
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(8, 5))
+
+        sns.pointplot(
+            data=df,
+            x="animal_id",
+            y=self.sweep_column,
+            ax=ax,
+            join=False,
+            hue="animal_id",
+        )
+
+        _ = ax.set_xticks(
+            ax.get_xticks(), ax.get_xticklabels(), rotation=90, ha="right"
+        )
+        _ = ax.set(ylabel="Best tau", xlabel="")
+        ax.get_legend().set_visible(False)
+
+        return None
+
+    def plot_tau_summary(self, df=None, title=None):
+        """
+        Wrapper function around plot_best_tau_by_animal()
+        and plot_best_tau_counts()
+        """
+
+        if df is None:
+            df = self.find_best_fit(group="animal_id")
+
+        fig, ax = plt.subplots(1, 2, figsize=(16, 5))
+        self.plot_best_tau_by_animal(df=df, ax=ax[0])
+        self.plot_best_tau_counts(df=df, ax=ax[1])
+
+        if title is None:
+            plt.suptitle("Fit Tau Summary")
+        else:
+            plt.suptitle(title)
 
         return None
 

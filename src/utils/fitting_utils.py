@@ -2,11 +2,22 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 
 
-def get_taus_df():
-    """Load df with tau values for each animal
+def get_prev_violation_taus_df():
+    """Load df with prev_violation tau values for each animal
     that were found in macro sweep with randomstate = 47"""
     taus_df = pd.read_csv(
         "/Users/jessbreda/Desktop/github/animal-learning/data/results/prev_violation_tau.csv"
+    )
+    return taus_df
+
+
+def get_taus_df():
+    """
+    Load df with tau values for each animal and variable
+    with tau sweep performed with randomstate = 47
+    """
+    taus_df = pd.read_csv(
+        "/Users/jessbreda/Desktop/github/animal-learning/data/results/tau_df.csv"
     )
     return taus_df
 
