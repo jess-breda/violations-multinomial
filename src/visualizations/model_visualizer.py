@@ -9,6 +9,7 @@ class ModelVisualizer:
         self.experiment = experiment
         self.fit_models = experiment.fit_models
         self.tau_columns = self.fit_models.filter(like="tau").columns.to_list()
+        self.nll_columns = self.fit_models.filter(like="nll").columns.to_list()
         self._init_config_dtypes_()
 
     def _init_config_dtypes_(self):
@@ -22,13 +23,13 @@ class ModelVisualizer:
         int_columns = ["n_test_trials", "n_train_trials"]
         self.fit_models[int_columns] = self.fit_models[int_columns].astype(int)
 
-        float_columns = ["nll", "sigma"] + self.tau_columns
+        float_columns = ["sigma"] + self.nll_columns + self.tau_columns
         self.fit_models[float_columns] = self.fit_models[float_columns].astype(float)
 
         return None
 
     # DF HELPERS
-    def find_best_fit(self, group="animal_id"):
+    def find_best_fit(self, group="animal_id", mode="test"):
         """
         Find the best fit for a given group. For example,
         if search over sigma and taus and group is "tau",
@@ -51,14 +52,19 @@ class ModelVisualizer:
             animal, group (or just each animal if group is "animal_id")
         """
 
+        if mode == "test":
+            col_name = "nll"
+        else:
+            col_name = "train_nll"
+
         if group == "animal_id":
-            best_idx = self.fit_models.groupby("animal_id").nll.idxmin()
+            best_idx = self.fit_models.groupby("animal_id")[col_name].idxmin()
             return self.fit_models.loc[best_idx].copy().reset_index(drop=True)
 
         else:
             best_fit_dfs = []
             for _, sub_df in self.fit_models.groupby(["animal_id"]):
-                best_idx = sub_df.groupby(group)["nll"].idxmin()
+                best_idx = sub_df.groupby(group)[col_name].idxmin()
                 best_fit_df = sub_df.loc[best_idx.dropna()]
                 best_fit_dfs.append(best_fit_df)
             return pd.concat(best_fit_dfs, ignore_index=True)
@@ -344,7 +350,9 @@ class ModelVisualizer:
                 df_animal, ax=ax[i], title=f"Animal {animal_id}", **kwargs
             )
 
-    def plot_weights_summary(self, df=None, ax=None, animal_id=None, **kwargs):
+    def plot_weights_summary(
+        self, df=None, ax=None, animal_id=None, title="", **kwargs
+    ):
         """
         Wrapper around plot_weights to plot weights for all
         animals in the experiment with variance indicated on plot.
@@ -372,7 +380,10 @@ class ModelVisualizer:
             df = df.query("animal_id == @animal_id")
             title = f"Animal {animal_id}"
         else:
-            title = "All animals"
+            if title == "":
+                title = "All animals"
+            else:
+                title = title
 
         if ax is None:
             fig, ax = plt.subplots(figsize=(12, 6))
@@ -568,7 +579,8 @@ class ModelVisualizerCompare(ModelVisualizer):
 
         # Select relevant columns & set inidices for merge
         best_fit_df_selected = best_fit_df.set_index(["animal_id", "model_name"])[
-            ["nll", "sigma", "tau", "model_type", "n_train_trials", "n_test_trials"]
+            ["nll", "sigma", "model_type", "n_train_trials", "n_test_trials"]
+            + self.tau_columns
         ]
         null_df_selected = null_df.set_index(["animal_id", "model_name"])[
             ["nll", "model_type", "n_train_trials", "n_test_trials"]
@@ -717,4 +729,35 @@ class ModelVisualizerCompare(ModelVisualizer):
         super().plot_nll_over_sigmas_by_animal(
             group=["sigma", "model_name"], hue="model_name", palette="Greys"
         )
+        return None
+
+    def plot_train_and_test_nll(self, **kwargs):
+        fig, ax = plt.subplots(1, 2, figsize=(16, 5))
+
+        train_df = self.find_best_fit(["animal_id", "model_name"], mode="train")
+        sns.pointplot(
+            data=train_df,
+            x="model_name",
+            y="train_nll",
+            color="orange",
+            ax=ax[0],
+            **kwargs,
+        )
+
+        test_df = self.find_best_fit(["animal_id", "model_name"], mode="test")
+        sns.pointplot(
+            data=train_df,
+            x="model_name",
+            y="nll",
+            color="lightgreen",
+            ax=ax[1],
+            **kwargs,
+        )
+
+        ax[0].set_title("Train NLL")
+        ax[1].set_title("Test NLL")
+
+        for i in range(2):
+            ax[i].set_xticklabels(ax[i].get_xticklabels(), rotation=25, ha="right")
+            ax[i].set(xlabel="", ylabel="nll")
         return None

@@ -154,17 +154,21 @@ class Experiment:
             weights for the model
         nll : float
             negative log likelihood of the model
-        # TODO add in lr only flag
         """
 
         # Initialize model e.g. MultiLogisticRegression(sigma=sigma)
         model = self.model_config[model_name]["model_class"](sigma=sigma)
+        lr_only = self.model_config[model_name].get("lr_only", False)
 
         # fit & eval model
         W_fit = model.fit(X_train, Y_train)
-        nll = model.eval(X_test, Y_test)  # lr only here!!!
+        nll = model.eval(X_test, Y_test, lr_only=lr_only)
 
-        return W_fit, nll
+        if self.eval_train:
+            train_nll = model.eval(X_train, Y_train, lr_only=lr_only)
+            return W_fit, nll, train_nll
+        else:
+            return W_fit, nll
 
     @staticmethod
     def store(data, df):
