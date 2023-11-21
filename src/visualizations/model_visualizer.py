@@ -203,7 +203,6 @@ class ModelVisualizer:
             )
 
             # aesthetics
-            plt.xticks(rotation=90)
             sns.despine()
             current_ax.set(
                 ylabel="Test NLL",
@@ -714,6 +713,7 @@ class ModelVisualizerCompare(ModelVisualizer):
         if hue == "tau":
             ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0)
         plt.xlabel("Model")
+        plt.xticks(rotation=25)
         plt.ylabel("Bits/Trial")
 
         if ylim is not None:
