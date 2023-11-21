@@ -126,13 +126,24 @@ class ExperimentCompareModels(Experiment):
             X, Y = super().generate_design_matrix_for_animal(
                 animal_df, filter_params, model_name
             )
-            X_train, X_test, Y_train, Y_test = tts.apply_session_split(X, Y)
+
+            # if lr_only, then test set is just L/R trials and cost is computed only
+            # on these trials
+            lr_only_eval = self.model_config[model_name].get("lr_only_eval", False)
+            X_train, X_test, Y_train, Y_test = tts.apply_session_split(
+                X, Y, lr_only_eval
+            )
 
             for sigma in self.sigmas:
                 print(f"\n ***** evaluating model {model_name} w/ sigma {sigma} *****")
-                # TODO change this to allow for l/r only eval
                 W_fit, test_nll, train_nll = super().fit_and_evaluate_model(
-                    X_train, X_test, Y_train, Y_test, sigma, model_name
+                    X_train,
+                    X_test,
+                    Y_train,
+                    Y_test,
+                    sigma,
+                    model_name,
+                    lr_only_eval,
                 )
 
                 # Store

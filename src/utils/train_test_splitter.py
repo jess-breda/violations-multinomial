@@ -5,6 +5,7 @@ Written by Jess Breda, 2023-10-23
 """
 
 from sklearn.model_selection import train_test_split
+import numpy as np
 
 
 class TrainTestSplitter:
@@ -47,7 +48,7 @@ class TrainTestSplitter:
             unique_sessions, test_size=self.test_size, random_state=self.random_state
         )
 
-    def apply_session_split(self, X, Y, filter_violations=False):
+    def apply_session_split(self, X, Y, lr_only=False):
         """
         Function to apply session train/test split computed by
         get_sessions_for_split() to design matrix and labels.
@@ -59,10 +60,10 @@ class TrainTestSplitter:
         Y : np.ndarray, shape (N, C) or (N, )
             one-hot encoded choice labels for mutli class (l, r, v) or
             binary class (l, r) respectively
-        filter_violations : bool (default=False)
+        lr_only : bool (default=False)
             whether to filter out violation trials from the test set
             for the multi-class case. this is used when running
-            model comparision between binary and multi.
+            model comparison between binary and multi.
 
         returns
         -------
@@ -102,7 +103,7 @@ class TrainTestSplitter:
         self.Y_test = Y_test
 
         # Additional code to filter out violations if flag is set
-        if filter_violations:
+        if lr_only:
             self.filter_violations_from_test_set()
             return (
                 self.X_train,

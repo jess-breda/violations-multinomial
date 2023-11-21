@@ -40,6 +40,7 @@ class Experiment:
         self.test_size = params.get("test_size", 0.2)
         self.null_models = []
         self.model_config = params["model_config"]
+        self.params = params
 
         if self.animals is None:
             self.animals = self.df.animal_id.unique()
@@ -142,7 +143,14 @@ class Experiment:
         return None
 
     def fit_and_evaluate_model(
-        self, X_train, X_test, Y_train, Y_test, sigma, model_name
+        self,
+        X_train,
+        X_test,
+        Y_train,
+        Y_test,
+        sigma,
+        model_name,
+        lr_only,
     ):
         """
         Function to fit and evaluate a model given the training
@@ -158,14 +166,13 @@ class Experiment:
 
         # Initialize model e.g. MultiLogisticRegression(sigma=sigma)
         model = self.model_config[model_name]["model_class"](sigma=sigma)
-        lr_only = self.model_config[model_name].get("lr_only", False)
 
         # fit & eval model
         W_fit = model.fit(X_train, Y_train)
-        nll = model.eval(X_test, Y_test, lr_only=lr_only)
+        nll = model.eval(X_test, Y_test, lr_only)
 
         if self.eval_train:
-            train_nll = model.eval(X_train, Y_train, lr_only=lr_only)
+            train_nll = model.eval(X_train, Y_train, lr_only)
             return W_fit, nll, train_nll
         else:
             return W_fit, nll

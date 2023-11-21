@@ -38,8 +38,10 @@ class BinaryLogisticRegression:
         if isinstance(X, pd.DataFrame):
             X = X.to_numpy()
 
-        if lr_only is not None:
-            raise TypeError("lr_only is not used in this function, set to None!")
+        if lr_only:
+            raise TypeError(
+                f"lr_only is not used in this function, set to None or False! currently set to {lr_only}"
+            )
         return self.cost(self.w, X, y, sigma=None)
 
     def cost(self, w, X, y, sigma):
