@@ -731,33 +731,35 @@ class ModelVisualizerCompare(ModelVisualizer):
         )
         return None
 
-    def plot_train_and_test_nll(self, **kwargs):
-        fig, ax = plt.subplots(1, 2, figsize=(16, 5))
+    def plot_train_and_test_ll(self, **kwargs):
+        fig, ax = plt.subplots(1, 2, figsize=(13, 6), constrained_layout=True)
 
         train_df = self.find_best_fit(["animal_id", "model_name"], mode="train")
+        train_df["train_ll"] = train_df.train_nll * -1
         sns.pointplot(
             data=train_df,
             x="model_name",
-            y="train_nll",
+            y="train_ll",
             color="orange",
             ax=ax[0],
             **kwargs,
         )
 
         test_df = self.find_best_fit(["animal_id", "model_name"], mode="test")
+        test_df["ll"] = test_df.nll * -1
         sns.pointplot(
-            data=train_df,
+            data=test_df,
             x="model_name",
-            y="nll",
+            y="ll",
             color="lightgreen",
             ax=ax[1],
             **kwargs,
         )
 
-        ax[0].set_title("Train NLL")
-        ax[1].set_title("Test NLL")
+        ax[0].set_title("Train LL")
+        ax[1].set_title("Test LL")
 
         for i in range(2):
             ax[i].set_xticklabels(ax[i].get_xticklabels(), rotation=25, ha="right")
-            ax[i].set(xlabel="", ylabel="nll")
+            ax[i].set(xlabel="", ylabel="LL")
         return None
