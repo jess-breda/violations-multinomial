@@ -9,7 +9,6 @@ Written by Jess Breda
 import pathlib
 import sys
 import pandas as pd
-import numpy as np
 from experiment import Experiment
 
 try:
@@ -25,9 +24,6 @@ except:
         if folder.is_dir()
     ]
 
-from train_test_splitter import TrainTestSplitter
-from design_matrix_generator_interactions import DesignMatrixGeneratorInteractions
-
 
 class ExperimentSigmaSweep(Experiment):
     """
@@ -37,68 +33,76 @@ class ExperimentSigmaSweep(Experiment):
 
     def __init__(self, params):
         super().__init__(params)
-        self.fit_models = pd.DataFrame(
-            columns=[
-                "animal_id",
-                "model_name",
-                "nll",
-                "sigma",
-                "tau",
-                "features",
-                "weights",
-                "n_train_trials",
-                "n_test_trials",
-            ]
-        )
-
-    def run(self, save_name=None):
-        # TODO- training stage is hard coded- consider changing
-        for animal_id in self.animals:
-            print(f"\n\n !!!!! evaluating animal {animal_id} !!!!!\n\n")
-            animal_df = self.df.query("animal_id == @animal_id and training_stage > 2")
-            tau = self.taus.query("animal_id == @animal_id")["tau"].values[0]
-            self.run_single_animal(animal_id, animal_df, tau)
-
-    def run_single_animal(self, animal_id, animal_df, tau):
-        # Make design matrix given model configs
-        design_matrix_generator_class = globals()[
-            self.model_config["design_matrix_generator"]
+        vars = [
+            "animal_id",
+            "model_name",
+            "nll",
+            "train_nll",
+            "sigma",
+            "features",
+            "weights",
+            "n_train_trials",
+            "n_test_trials",
         ]
-        design_matrix_args = self.model_config.get("design_matrix_generator_args", {})
-        design_matrix_generator = design_matrix_generator_class(
-            model_type=self.model_config["model_type"]
+
+        # only one model being tested here so we assume the name is the
+        # first key in the model_config dict
+        self.model_name = next(iter(self.model_config.keys()))
+
+        if params["tau_columns"] is not None:
+            tau_columns = [f"{col_name}_tau" for col_name in params["tau_columns"]]
+        else:
+            tau_columns = []
+        self.fit_models = pd.DataFrame(columns=vars + tau_columns)
+        self.eval_train = params.get("eval_train", False)
+
+    def run(self, min_training_stage=3):
+        for animal_id in self.animals:
+            animal_df = self.df.query(
+                "animal_id == @animal_id and training_stage >= @min_training_stage"
+            )
+
+            print(f"\n >>>> evaluating animal {animal_id} <<<<")
+            self.run_single_animal(animal_id, animal_df)
+
+    def run_single_animal(self, animal_id, animal_df):
+        """
+        Run an experiment given a fixed design matrix for
+        a single animal that sweeps over sigmas
+        """
+        # get filter params (if any) & build design matrix
+        filter_params = super().create_filter_params(animal_id, self.model_name)
+        X, Y = super().generate_design_matrix_for_animal(
+            animal_df, filter_params, self.model_name
         )
 
-        X, Y = design_matrix_generator.generate_design_matrix(
-            df=animal_df,
-            tau=tau,
-            **design_matrix_args,
-        )
-
-        # Split into train and test.
-        tts = TrainTestSplitter(self.test_size, self.random_state)
-        tts.get_sessions_for_split(X)
+        # train test split
+        tts = super().get_animal_train_test_sessions(animal_df)
         X_train, X_test, Y_train, Y_test = tts.apply_session_split(X, Y)
 
-        # Fit models for each sigma
         for sigma in self.sigmas:
-            model = self.model_config["model_class"](sigma=sigma)
-            W_fit = model.fit(X_train, Y_train)
-            nll = model.eval(X_test, Y_test)
+            print(f"\n ***** evaluating model {self.model_name} w/ sigma {sigma} *****")
+            W_fit, test_nll, train_nll = super().fit_and_evaluate_model(
+                X_train,
+                X_test,
+                Y_train,
+                Y_test,
+                sigma,
+                self.model_name,
+                lr_only=False,
+            )
 
             # Store
             data = {
                 "animal_id": animal_id,
-                "model_name": self.model_config["model_type"],
-                "nll": nll,
+                "model_name": self.model_name,
+                "nll": test_nll,
+                "train_nll": train_nll,
                 "sigma": sigma,
-                "tau": tau,
                 "features": X_test.columns,
                 "weights": W_fit,
                 "n_train_trials": len(X_train),
                 "n_test_trials": len(X_test),
+                **{f"{key}_tau": value for key, value in filter_params.items()},
             }
-            self.store(data, self.fit_models)
-
-    def store(self, data, df):
-        return super().store(data, df)
+            super().store(data, self.fit_models)

@@ -142,6 +142,54 @@ class Experiment:
 
         return None
 
+    def create_filter_params(self, animal_id, model_name):
+        """
+        Create filter params dict for a given animal given the
+        filter_implementation dict and the tau df.
+
+        If the value is 1, it is being swept and we need to look it up
+        in the tau_df. If the value is -1 or 0, it is not being swept
+        and we can leave these values as is. The DesignMatrixGenerator
+        will handle the filtering in this case (see returns for more info).
+
+        params
+        ------
+        animal_id : str
+            animal id to create filter params for
+
+        returns
+        -------
+        filter_params : dict
+            dictionary with the column names, filter_values for any variable
+            that is in filter_implementation
+            if the value is 1, the filter_value is looked up in the tau_df
+            if the value is -1 or 0, the filter_value is left as is
+            to be handled by the DesignMatrixGenerator where 0 means leave
+            the column as is, don't filter and -1 means drop the column.
+        """
+
+        filter_params = {}
+        filter_implementation = self.model_config[model_name].get(
+            "filter_implementation", {}
+        )
+
+        if len(filter_implementation) == 0:
+            return filter_params  # empty dict
+        else:
+            for key, value in filter_implementation.items():
+                # If value is 1, we need to look up the tau & set that as the filter value
+                if value == 1:
+                    # Query the self.taus with the condition and extract the value
+                    filter_params[key] = self.taus_df.query("animal_id == @animal_id")[
+                        f"{key}_tau"
+                    ].values[0]
+                # If the value is 0 or -1, no filtering is being applied and
+                # the DesignMatrixGenerator will handle this
+                elif value == -1 or value == 0:
+                    filter_params[key] = value
+
+            return filter_params
+
     def fit_and_evaluate_model(
         self,
         X_train,

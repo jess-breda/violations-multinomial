@@ -67,6 +67,11 @@ class ExperimentTauSweep(Experiment):
         tau_sweep dict. This will create a dict with the
         column names, taus (looked up from tau_df) for any variable
         that is in tau_sweep with a value of False
+
+        !! NOTE- this child method overrides the parent method
+        !! this is because tau sweeps have unique filter params format
+        !! where some columns are being swept and others already have
+        !! a tau value
         """
 
         filter_params = {}
