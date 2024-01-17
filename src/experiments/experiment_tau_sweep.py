@@ -48,6 +48,7 @@ class ExperimentTauSweep(Experiment):
             "model_name",
             "model_type",
             "nll",
+            "train_nll",
             "sigma",
             "features",
             "weights",
@@ -56,6 +57,7 @@ class ExperimentTauSweep(Experiment):
         ]
         tau_columns = [f"{key}_tau" for key in self.tau_sweep.keys()]
         self.fit_models = pd.DataFrame(columns=vars + tau_columns)
+        self.eval_train = params.get("eval_train", False)
 
         # only one model being tested here so we assume the name is the
         # first key in the model_config dict
@@ -91,7 +93,6 @@ class ExperimentTauSweep(Experiment):
     def run(self, min_training_stage=3):
         """
         Run experiment for all animals, sigmas, and models
-        TODO- training stage is hard coded- consider changing
         """
 
         for animal_id in self.animals:
@@ -126,8 +127,14 @@ class ExperimentTauSweep(Experiment):
             for sigma in self.sigmas:
                 print(f"\n ***** evaluating tau {tau}, sigma {sigma} *****")
 
-                W_fit, nll = super().fit_and_evaluate_model(
-                    X_train, X_test, Y_train, Y_test, sigma, self.model_name
+                W_fit, test_nll, train_nll = super().fit_and_evaluate_model(
+                    X_train,
+                    X_test,
+                    Y_train,
+                    Y_test,
+                    sigma,
+                    self.model_name,
+                    lr_only=False,
                 )
 
                 # Store
@@ -135,7 +142,8 @@ class ExperimentTauSweep(Experiment):
                     "animal_id": animal_id,
                     "model_name": self.model_name,
                     "model_type": self.model_config[self.model_name]["model_type"],
-                    "nll": nll,
+                    "nll": test_nll,
+                    "train_nll": train_nll,
                     "sigma": sigma,
                     "features": X_test.columns,
                     "weights": W_fit,

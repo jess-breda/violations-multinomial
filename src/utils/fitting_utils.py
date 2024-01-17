@@ -11,14 +11,19 @@ def get_prev_violation_taus_df():
     return taus_df
 
 
-def get_taus_df():
+def get_taus_df(stage4filter=None):
     """
     Load df with tau values for each animal and variable
     with tau sweep performed with randomstate = 47
     """
-    taus_df = pd.read_csv(
-        "/Users/jessbreda/Desktop/github/animal-learning/data/results/tau_df.csv"
-    )
+    if stage4filter:
+        taus_df = pd.read_csv(
+            "/Users/jessbreda/Desktop/github/animal-learning/data/results/tau_df_stg_4.csv"
+        )
+    else:
+        taus_df = pd.read_csv(
+            "/Users/jessbreda/Desktop/github/animal-learning/data/results/tau_df.csv"
+        )
     return taus_df
 
 
