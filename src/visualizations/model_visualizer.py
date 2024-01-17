@@ -759,6 +759,11 @@ class ModelVisualizerCompare(ModelVisualizer):
         ax[0].set_title("Train LL")
         ax[1].set_title("Test LL")
 
+        # move legends outside of plot
+        if "hue" in kwargs:
+            ax[0].legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0)
+            ax[1].legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0)
+
         for i in range(2):
             ax[i].set_xticklabels(ax[i].get_xticklabels(), rotation=25, ha="right")
             ax[i].set(xlabel="", ylabel="LL")
