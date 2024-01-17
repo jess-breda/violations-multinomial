@@ -121,7 +121,7 @@ def plot_univariate_linear_regression(results, ax=None, **kwargs):
     y_line = slope * x_line + intercept
 
     ax.scatter(x_data, y_data, color="black", label="Data")
-    ax.plot(x_line, y_line, color="red", label="Regression Line")
+    ax.plot(x_line, y_line, color="salmon", label="Regression Line")
 
     # Set axis limits, labels, title etc. based on kwargs
     ax.set(**kwargs)
