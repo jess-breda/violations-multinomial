@@ -35,12 +35,15 @@ class Experiment:
         self.animals = params["animals"]
         self.sigmas = params["sigmas"]
         self.df = get_rat_viol_data(animal_ids=self.animals)
-        self.taus_df = get_taus_df()
         self.random_state = params.get("random_state", 23)
         self.test_size = params.get("test_size", 0.2)
         self.null_models = []
         self.model_config = params["model_config"]
         self.params = params
+        self.min_training_stage = params.get(
+            "min_training_stage", 3
+        )  # TODO can be deleted later
+        self.taus_df = get_taus_df(self.min_training_stage)
 
         if self.animals is None:
             self.animals = self.df.animal_id.unique()

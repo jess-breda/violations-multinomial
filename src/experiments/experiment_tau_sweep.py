@@ -90,14 +90,14 @@ class ExperimentTauSweep(Experiment):
 
         return filter_params
 
-    def run(self, min_training_stage=3):
+    def run(self):
         """
         Run experiment for all animals, sigmas, and models
         """
-
+        print("minimum training stage is ", self.min_training_stage)
         for animal_id in self.animals:
             animal_df = self.df.query(
-                "animal_id == @animal_id and training_stage >= @min_training_stage"
+                "animal_id == @animal_id and training_stage >= @self.min_training_stage"
             )
 
             # get the exp filter params for the animal, columns

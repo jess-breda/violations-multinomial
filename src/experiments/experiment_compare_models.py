@@ -48,10 +48,10 @@ class ExperimentCompareModels(Experiment):
         """
         Run experiment for all animals, sigmas, and models
         """
-
+        print("minimum training stage is ", self.min_training_stage)
         for animal_id in self.animals:
             animal_df = self.df.query(
-                "animal_id == @animal_id and training_stage >= @min_training_stage"
+                "animal_id == @animal_id and training_stage >= @self.min_training_stage"
             )
 
             print(f"\n >>>> evaluating animal {animal_id} <<<<")

@@ -56,10 +56,11 @@ class ExperimentSigmaSweep(Experiment):
         self.fit_models = pd.DataFrame(columns=vars + tau_columns)
         self.eval_train = params.get("eval_train", False)
 
-    def run(self, min_training_stage=3):
+    def run(self):
+        print("minimum training stage is ", self.min_training_stage)
         for animal_id in self.animals:
             animal_df = self.df.query(
-                "animal_id == @animal_id and training_stage >= @min_training_stage"
+                "animal_id == @animal_id and training_stage >= @self.min_training_stage"
             )
 
             print(f"\n >>>> evaluating animal {animal_id} <<<<")
