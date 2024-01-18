@@ -660,6 +660,17 @@ class ModelVisualizerCompare(ModelVisualizer):
         group["bits_per_trial"] = bits_per_trial
         return group
 
+    def compute_delta_ll_pivot(self, base_model_name, new_model_name, value):
+        best_fit_df = self.find_best_fit(["animal_id", "model_name"])
+        pivot_df = best_fit_df.pivot(
+            index="animal_id", columns="model_name", values=value
+        )
+        pivot_df["delta_ll"] = (-1 * pivot_df[new_model_name]) - (
+            -1 * pivot_df[base_model_name]
+        )
+
+        return pivot_df
+
     # PLOTS
     def plot_model_comparison(
         self, type="point", hue=None, ax=None, ylim=None, **kwargs
@@ -768,3 +779,44 @@ class ModelVisualizerCompare(ModelVisualizer):
             ax[i].set_xticklabels(ax[i].get_xticklabels(), rotation=25, ha="right")
             ax[i].set(xlabel="", ylabel="LL")
         return None
+
+    def plot_ll_delta_by_animal(
+        self, base_model_name, new_model_name, type="test", ax=None
+    ):
+        # make the pivot df of model name by ll
+
+        if type == "test":
+            value = "nll"
+            color = "lightgreen"
+        elif type == "train":
+            value = "train_nll"
+            color = "orange"
+        else:
+            raise ValueError("type must be test or train")
+
+        pivot_df = self.compute_delta_ll_pivot(base_model_name, new_model_name, value)
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+
+        pivot_df.reset_index().plot(
+            kind="bar",
+            x="animal_id",
+            y="delta_ll",
+            ax=ax,
+            label="",
+            color=color,
+        )
+
+        mean = pivot_df["delta_ll"].mean().round(2)
+        std = pivot_df["delta_ll"].std().round(2)
+
+        ax.axhline(y=mean, color=color, linestyle="--")
+
+        ax.axhline(y=0, color="black")
+        _ = ax.set(
+            ylabel=f"Delta {type} LL (new - base)",
+            title=f"Model Improvement- mu: {mean} std: {std} \n {base_model_name} -> {new_model_name}",
+        )
+
+        return ax
