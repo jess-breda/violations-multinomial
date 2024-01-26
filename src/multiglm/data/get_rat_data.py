@@ -64,7 +64,7 @@ def get_rat_viol_data(animal_ids=None, mode="local"):
     return rat_df
 
 
-def get_rat_data(animal_ids=None, mode="local"):
+def get_full_rat_data(animal_ids=None, mode="local"):
     """
     Function to load all rat data from the main PWM dataset
     without truncate at end of violations being tracked.
