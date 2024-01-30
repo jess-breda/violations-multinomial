@@ -55,7 +55,7 @@ def get_rat_viol_data(animal_ids=None, mode="local"):
     rat_df = pd.read_csv(data_path / file_name)
 
     if animal_ids:
-        print(f"returning viol data for {animal_ids}")
+        print(f"returning truncated viol data for {animal_ids}")
         rat_df = rat_df.query("animal_id == @animal_ids").copy()
         rat_df.reset_index(drop=True, inplace=True)
     else:
