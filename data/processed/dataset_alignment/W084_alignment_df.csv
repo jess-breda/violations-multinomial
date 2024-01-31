@@ -1,0 +1,4 @@
+animal_id,source,max_trial,align_session,n_sessions,n_trials_per_session,session_avg_violation,session_avg_violation_stage_4
+W084,new,1413.0,1.0,0.0,,,
+W084,old,,,,,,
+W084,new_no_touts,,,0.0,,,
