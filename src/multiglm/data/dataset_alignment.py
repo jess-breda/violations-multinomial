@@ -28,29 +28,12 @@ from matplotlib.ticker import MaxNLocator
 from pathlib import Path
 
 from multiglm.utils.violation_iti import ViolationITI
-from multiglm.data.get_rat_data import get_full_rat_data, get_rat_viol_data  # old data
+from multiglm.data.get_old_rat_data import (
+    get_full_rat_data,
+    get_rat_viol_data,
+)  # old data
 
 sns.set_context("talk")
-
-ANIMAL_IDS = [
-    "W051",
-    "W060",
-    "W061",
-    "W062",
-    "W065",
-    "W066",
-    "W074",
-    "W075",
-    "W078",
-    "W080",
-    "W081",
-    "W082",
-    "W083",
-    "W084",
-    "W088",
-    "W089",
-    "W094",
-]
 
 
 def align_and_visualize_datasets(animal_ids, save_out=True):
@@ -193,7 +176,7 @@ class DatasetLoadAndAlign:
     @staticmethod
     def add_trials_column(df, groupby_col="session_counter"):
         """
-        Breif method for adding a trial count column that
+        Brief method for adding a trial count column that
         resets for each session to the "new" dfs since
         they were not made in matlab
         """
