@@ -43,7 +43,7 @@ def clean_datasets(animal_ids, column_rename_map, save_out=True):
     all_animals = pd.concat(all_animal_dfs, ignore_index=True)
 
     if save_out:  # already in gitignore due to large size
-        all_animals.to_csv("../data/cleaned/all_animals_cleaned.csv")
+        all_animals.to_csv("../data/cleaned/all_animals_cleaned.csv", index=False)
     return all_animals
 
 
@@ -71,6 +71,7 @@ class DatasetCleaner:
         self.rename_columns()
         self.map_correct_side_and_choice()
         self.make_session_column()
+        self.add_old_session_column()
         self.drop_and_account_for_trial_non_starts()
 
         self.cleaned_df = self.raw_df.copy()
@@ -108,6 +109,30 @@ class DatasetCleaner:
         # defining a session as all trials from a single day
         self.raw_df["session"] = (
             self.raw_df["session_date"].rank(method="dense").astype(int)
+        )
+
+        return None
+
+    def add_old_session_column(self):
+        """
+        Note- this isn't a perfect alignment between the old and new-
+        you can see the quality of alignment in figures/dataset_alignment
+        However, it is better than not aligning and will be useful for
+        trying to approximate how to truncate the new dataset to replicate
+        results with the old dataset when violation stop being tracked at
+        session 200.
+        """
+        alignment_df = pd.read_csv(
+            f"../data/processed/dataset_alignment/{self.animal_id}_alignment_df.csv"
+        )
+
+        delta_for_align_new_to_old = (
+            alignment_df.query("source == 'old'").align_session.values[0]
+            - alignment_df.query("source == 'new'").align_session.values[0]
+        )
+
+        self.raw_df["session_relative_to_old"] = (
+            self.raw_df["session"] + delta_for_align_new_to_old
         )
 
         return None
