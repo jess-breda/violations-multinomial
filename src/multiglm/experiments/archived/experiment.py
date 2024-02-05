@@ -1,10 +1,4 @@
 """
-
-ARCHIVED-- this is an old version of the experiment class that
-was specific to the "old" dataset. This class is now replaced by
-a more general class that can load a variety of datasets.
-
-
 Parent class for all experiments. This class contains
 init and storing information. Eventually may be updated
 to include running information
@@ -16,7 +10,19 @@ Written by Jess Breda 2023-10-23
 import pathlib
 import sys
 import pickle
-import multiglm
+
+try:
+    [
+        sys.path.append(str(folder))
+        for folder in pathlib.Path("../src/").iterdir()
+        if folder.is_dir()
+    ]
+except:
+    [
+        sys.path.append(str(folder))
+        for folder in pathlib.Path("../../src/").iterdir()
+        if folder.is_dir()
+    ]
 
 from get_rat_data import get_rat_viol_data
 from fitting_utils import get_taus_df
