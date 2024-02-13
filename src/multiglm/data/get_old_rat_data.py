@@ -50,7 +50,7 @@ def get_rat_viol_data(animal_ids=None, mode="local"):
         `notebooks/create_violation_dataset.ipynb` for more info.
     """
     data_path = determine_data_path(mode=mode)
-    file_name = "processed/violation_data.csv"
+    file_name = "cleaned/old_dataset/old_violation_data.csv"
 
     rat_df = pd.read_csv(data_path / file_name)
 
@@ -95,7 +95,7 @@ def get_full_rat_data(animal_ids=None, mode="local"):
     """
 
     data_path = determine_data_path(mode=mode)
-    file_name = "processed/all_data.csv"
+    file_name = "cleaned/old_dataset/old_all_data.csv"
 
     rat_df = pd.read_csv(data_path / file_name)
 
