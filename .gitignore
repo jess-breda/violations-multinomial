@@ -3,6 +3,8 @@ data/raw/rat_behavior.csv
 data/processed/all_data.csv
 data/cleaned/all_animals_cleaned.csv
 data/cleaned/old_dataset/old_all_data.csv
+data/cleaned/old_dataset/old_all_data.csv
+data/processed/all_animals_trained_threshold.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -134,4 +136,3 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-data/cleaned/old_dataset/old_all_data.csv

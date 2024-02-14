@@ -1,8 +1,6 @@
 ANIMAL_IDS = [
     "W051",
     "W060",
-    "W061",  # to drop
-    "W062",  # to drop
     "W065",
     "W066",
     "W068",
