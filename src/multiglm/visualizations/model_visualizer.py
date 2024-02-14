@@ -392,9 +392,6 @@ class ModelVisualizer:
         return None
 
 
-from model_visualizer import ModelVisualizer
-
-
 class ModelVisualizerTauSweep(ModelVisualizer):
     """
     Model class with additional methods for visualizing

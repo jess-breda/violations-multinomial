@@ -1,20 +1,7 @@
 import pathlib
 import sys
 import pandas as pd
-from experiment import Experiment
-
-try:
-    [
-        sys.path.append(str(folder))
-        for folder in pathlib.Path("../src/").iterdir()
-        if folder.is_dir()
-    ]
-except:
-    [
-        sys.path.append(str(folder))
-        for folder in pathlib.Path("../../src/").iterdir()
-        if folder.is_dir()
-    ]
+from multiglm.experiments.experiment import Experiment
 
 
 class ExperimentCompareModels(Experiment):
@@ -40,8 +27,11 @@ class ExperimentCompareModels(Experiment):
             "n_train_trials",
             "n_test_trials",
         ]
-        tau_columns = [f"{col_name}_tau" for col_name in params["tau_columns"]]
-        self.fit_models = pd.DataFrame(columns=vars + tau_columns)
+        if params["tau_columns"]:
+            tau_columns = [f"{col_name}_tau" for col_name in params["tau_columns"]]
+            self.fit_models = pd.DataFrame(columns=vars + tau_columns)
+        else:
+            self.fit_models = pd.DataFrame(columns=vars)
         self.eval_train = params.get("eval_train", False)
 
     def run(self, min_training_stage=3):

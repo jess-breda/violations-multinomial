@@ -18,11 +18,11 @@ def get_taus_df(min_training_stage=3):
     """
     if min_training_stage == 4:
         taus_df = pd.read_csv(
-            "/Users/jessbreda/Desktop/github/animal-learning/data/results/tau_df_stg_4.csv"
+            "/Users/jessbreda/Desktop/github/animal-learning/data/results/pre-new-dataset/tau_df_stg_4.csv"
         )
     elif min_training_stage == 3:
         taus_df = pd.read_csv(
-            "/Users/jessbreda/Desktop/github/animal-learning/data/results/tau_df.csv"
+            "/Users/jessbreda/Desktop/github/animal-learning/data/results/pre-new-dataset/tau_df.csv"
         )
     else:
         raise ValueError("min_training_stage must be 3 or 4!")
