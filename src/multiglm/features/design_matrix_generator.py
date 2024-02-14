@@ -5,7 +5,7 @@ Written by Jess Breda, 2023-10-23
 
 import pandas as pd
 import numpy as np
-from exp_filter import ExpFilter
+from multiglm.features.exp_filter import ExpFilter
 
 
 class DesignMatrixGenerator:
@@ -37,7 +37,7 @@ class DesignMatrixGenerator:
             right or violation: [[1 0 0] , [0 1 0], [0 0 1]]
         """
 
-        Y = pd.get_dummies(df["choice"], "choice", dummy_na=True).to_numpy(copy=True)
+        Y = pd.get_dummies(df["choice"], "choice").to_numpy(copy=True)
         return Y
 
     @staticmethod

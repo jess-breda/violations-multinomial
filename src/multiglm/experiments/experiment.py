@@ -1,47 +1,72 @@
 """
 
-ARCHIVED-- this is an old version of the experiment class that
-was specific to the "old" dataset. This class is now replaced by
-a more general class that can load a variety of datasets.
+Parent class for all experiments to build their .run() method off of. 
 
+To see a list of possible params, see params.py
 
-Parent class for all experiments. This class contains
-init and storing information. Eventually may be updated
-to include running information
+Has flexible methods for:
+- inits from params
+- loading dataset
+- generates design matrix
+- train test splits
+- compute null model
+- generating filter params from params
+- fit and eval models (binary or multi)
+- storing model fits
+- saving full experiment info
+
 
 Written by Jess Breda 2023-10-23
+Edited by Jess Breda 2024-02-06 for flexible data loading
 """
 
-
-import pathlib
-import sys
 import pickle
-import multiglm
 
-from get_rat_data import get_rat_viol_data
-from fitting_utils import get_taus_df
-from train_test_splitter import TrainTestSplitter
-from null_model import NullModel
+from multiglm.utils.fitting_utils import get_taus_df
+from multiglm.utils.train_test_splitter import TrainTestSplitter
+from multiglm.models.null_model import NullModel
+from multiglm.data.dataset_loader import DatasetLoader
+from multiglm.data import ANIMAL_IDS
 
 
 class Experiment:
     def __init__(self, params):
-        self.animals = params["animals"]
-        self.sigmas = params["sigmas"]
-        self.df = get_rat_viol_data(animal_ids=self.animals)
-        self.random_state = params.get("random_state", 23)
-        self.test_size = params.get("test_size", 0.2)
-        self.null_models = []
-        self.model_config = params["model_config"]
         self.params = params
+
+        # set up animals
+        self.animals = params["animals"]
+        if self.animals is None:
+            self.animals = ANIMAL_IDS
+        self.n_animals = len(self.animals)
+
+        # set up data
+        self.df = self.load_dataset()
         self.min_training_stage = params.get(
             "min_training_stage", 3
-        )  # TODO can be deleted later
+        )  # TODO delete later
         self.taus_df = get_taus_df(self.min_training_stage)
 
-        if self.animals is None:
-            self.animals = self.df.animal_id.unique()
-        self.n_animals = len(self.animals)
+        # set up train/test
+        self.random_state = params.get("random_state", 23)
+        self.test_size = params.get("test_size", 0.2)
+
+        # set up model config (a large-sub dictionary of params)
+        # see src/experiment/init_params.py for an example
+        self.model_config = params["model_config"]
+        self.sigmas = params["sigmas"]
+
+        # init space for null model
+        self.null_models = []
+
+    def load_dataset(self):
+        """
+        Function to return dataset of given data_type with specified
+        animal ids that will be passed into design matrix generator
+        """
+        self.data_type = self.params.get("data_type", "new_trained")
+        loader = DatasetLoader(animal_ids=self.animals, data_type=self.data_type)
+
+        return loader.load_data()
 
     def generate_design_matrix_for_animal(self, animal_df, filter_params, model_name):
         """
