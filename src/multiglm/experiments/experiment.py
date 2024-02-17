@@ -47,7 +47,7 @@ class Experiment:
         self.taus_df = get_taus_df(self.min_training_stage)
 
         # set up train/test
-        self.random_state = params.get("random_state", 23)
+        self.random_state = params.get("random_state", 47)
         self.test_size = params.get("test_size", 0.2)
 
         # set up model config (a large-sub dictionary of params)
@@ -64,6 +64,7 @@ class Experiment:
         animal ids that will be passed into design matrix generator
         """
         self.data_type = self.params.get("data_type", "new_trained")
+        print(f"Loading dataset type : {self.data_type}")
         loader = DatasetLoader(animal_ids=self.animals, data_type=self.data_type)
 
         return loader.load_data()
@@ -195,7 +196,7 @@ class Experiment:
             "filter_implementation", {}
         )
 
-        if len(filter_implementation) == 0:
+        if not filter_implementation or len(filter_implementation) == 0:
             return filter_params  # empty dict
         else:
             for key, value in filter_implementation.items():

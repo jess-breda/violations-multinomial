@@ -2,6 +2,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
+import pickle
 
 
 class ModelVisualizer:
@@ -322,7 +323,7 @@ class ModelVisualizer:
 
         return None
 
-    def plot_weights_by_animal(self, df=None, **kwargs):
+    def plot_weights_by_animal(self, df=None, model_name=None, **kwargs):
         """
         Wrapper around plot_weights to plot the weights for each
         animal in the experiment.
@@ -339,10 +340,16 @@ class ModelVisualizer:
         if df is None:
             df = self.unpack_features_and_weights()
 
+        if model_name:
+            df = df.query("model_name == @model_name").copy()
+
         n_animals = df.animal_id.nunique()
         fig, ax = plt.subplots(
             n_animals, 1, figsize=(12, 6 * n_animals), sharex=True, sharey=True
         )
+
+        if n_animals == 1:
+            ax = [ax]
 
         for i, (animal_id, df_animal) in enumerate(df.groupby("animal_id")):
             self.plot_weights(
@@ -380,7 +387,8 @@ class ModelVisualizer:
             title = f"Animal {animal_id}"
         else:
             if title == "":
-                title = "All animals"
+                n_animals = df.animal_id.nunique()
+                title = f"All Animals (N = {n_animals})"
             else:
                 title = title
 
@@ -390,9 +398,6 @@ class ModelVisualizer:
         self.plot_weights(df, ax, title=title, **kwargs)
 
         return None
-
-
-from model_visualizer import ModelVisualizer
 
 
 class ModelVisualizerTauSweep(ModelVisualizer):
@@ -820,3 +825,14 @@ class ModelVisualizerCompare(ModelVisualizer):
         )
 
         return ax
+
+    def plot_delta_ll_by_train_test_size():
+        pass
+
+
+def load_experiment(save_name, save_path="../data/results/"):
+
+    with open(save_path + save_name, "rb") as f:
+        experiment = pickle.load(f)
+
+    return experiment

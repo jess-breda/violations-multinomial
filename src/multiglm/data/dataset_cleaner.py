@@ -157,16 +157,37 @@ class DatasetCleaner:
 
     @staticmethod
     def determine_animal_choice(row):
-        if row.hit == 0:
-            return 0
-        elif row.hit == 1:
-            return 1
-        elif row.violation == 1:
+        """
+        Function for mapping the results of a trial (Hit/Miss/Violation)
+        and correct side (Left/Right) to the animal's choice:
+        (Left/Right/Violation)
+
+        Choice Encoding:
+        Left = 0, Right = 1, Violation = 2
+
+        Timeouts are encoded, but later dropped anything with -1
+        is an error and should be caught and fixed
+        """
+
+        # start with choices that aren't side specific
+        if row.violation == 1:
             return 2
         elif row.trial_not_started == 1:
-            return 3  # will be dropped anyway
+            return 3  # will be dropped
+        # side specific choices- right
+        elif row.correct_side == 1:
+            if row.hit == 1:
+                return 1  # chose right
+            elif row.hit == 0:
+                return 0  # chose left
+        # side specific choices- left
+        elif row.correct_side == 0:
+            if row.hit == 1:
+                return 0  # chose left
+            elif row.hit == 0:
+                return 1  # chose right
         else:
-            return -1  # this should happen, make the error clear
+            return -1  # catch to make error clear
 
     @staticmethod
     def calc_n_prev_trial_not_started(session_group):

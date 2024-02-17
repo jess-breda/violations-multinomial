@@ -196,7 +196,7 @@ class DesignMatrixGenerator:
 
         # prev choice regressors (L, R, V) (0, 1, Nan) -> (-1, 1, 0),
         X["prev_choice"] = (
-            df.choice.replace({0: -1}).fillna(0).astype(int).shift()
+            df.choice.replace({0: -1, 2: 0}).astype(int).shift()
             * self.session_boundaries_mask
         )
 

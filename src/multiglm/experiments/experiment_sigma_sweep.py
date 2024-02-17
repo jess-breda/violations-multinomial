@@ -6,23 +6,8 @@ animal. Model can be binary or multi
 Written by Jess Breda
 """
 
-import pathlib
-import sys
 import pandas as pd
-from experiment import Experiment
-
-try:
-    [
-        sys.path.append(str(folder))
-        for folder in pathlib.Path("../src/").iterdir()
-        if folder.is_dir()
-    ]
-except:
-    [
-        sys.path.append(str(folder))
-        for folder in pathlib.Path("../../src/").iterdir()
-        if folder.is_dir()
-    ]
+from multiglm.experiments.experiment import Experiment
 
 
 class ExperimentSigmaSweep(Experiment):
@@ -56,7 +41,7 @@ class ExperimentSigmaSweep(Experiment):
         self.fit_models = pd.DataFrame(columns=vars + tau_columns)
         self.eval_train = params.get("eval_train", False)
 
-    def run(self):
+    def run(self, min_training_stage=3):
         print("minimum training stage is ", self.min_training_stage)
         for animal_id in self.animals:
             animal_df = self.df.query(
