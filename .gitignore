@@ -135,28 +135,3 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-
-
-data/results/2024_02_06_compare_new_old_with_prev_violation.pkl
-data/results/2024_02_14_fit_prev_violation.pkl
-data/results/2024_02_14_fit_psytrack_features.pkl
-data/results/2024_02_14_validate_new_data_compare_prev_violation.pkl
-data/results/2024_02_16_compare_prev_violation.pkl
-
-data/cleaned/by_animal/W051_cleaned.csv
-data/cleaned/by_animal/W060_cleaned.csv
-data/cleaned/by_animal/W065_cleaned.csv
-data/cleaned/by_animal/W066_cleaned.csv
-data/cleaned/by_animal/W068_cleaned.csv
-data/cleaned/by_animal/W072_cleaned.csv
-data/cleaned/by_animal/W073_cleaned.csv
-data/cleaned/by_animal/W074_cleaned.csv
-data/cleaned/by_animal/W075_cleaned.csv
-data/cleaned/by_animal/W078_cleaned.csv
-data/cleaned/by_animal/W080_cleaned.csv
-data/cleaned/by_animal/W081_cleaned.csv
-data/cleaned/by_animal/W082_cleaned.csv
-data/cleaned/by_animal/W083_cleaned.csv
-data/cleaned/by_animal/W088_cleaned.csv
-data/cleaned/by_animal/W089_cleaned.csv
-data/cleaned/by_animal/W094_cleaned.csv
