@@ -26,11 +26,14 @@ from multiglm.data import ANIMAL_IDS
 
 
 class DatasetLoader:
-    def __init__(self, animal_ids=None, data_type="new_trained"):
+    def __init__(
+        self, animal_ids=None, data_type="new_trained", relative_data_path="../data"
+    ):
         if animal_ids is None:
             animal_ids = ANIMAL_IDS  # load all the animals
         self.animal_ids = animal_ids
         self.data_type = data_type
+        self.relative_data_path = relative_data_path
         self.determine_load_function()
 
     def determine_load_function(self):
@@ -72,12 +75,14 @@ class DatasetLoader:
         return self.load_function()
 
     def load_new_trained(self):
-        data = pd.read_csv("../data/processed/all_animals_trained_threshold.csv")
+        data = pd.read_csv(
+            self.relative_data_path + "/processed/all_animals_trained_threshold.csv"
+        )
         data = data.query("animal_id in @self.animal_ids").copy()
         return data
 
     def load_new_all(self):
-        data = pd.read_csv("../data/cleaned/all_animals_cleaned.csv")
+        data = pd.read_csv(self.relative_data_path + "/cleaned/all_animals_cleaned.csv")
         data = data.query("animal_id in @self.animal_ids").copy()
         return data
 
@@ -87,6 +92,8 @@ class DatasetLoader:
         return data
 
     def load_old_viols(self):
-        data = pd.read_csv("../data/cleaned/old_dataset/old_violation_data.csv")
+        data = pd.read_csv(
+            self.relative_data_path + "/cleaned/old_dataset/old_violation_data.csv"
+        )
         data = data[data["animal_id"].isin(self.animal_ids)]
         return data
