@@ -73,6 +73,7 @@ class DatasetCleaner:
         self.make_session_column()
         self.add_old_session_column()
         self.drop_and_account_for_trial_non_starts()
+        self.add_trial_column()
 
         self.cleaned_df = self.raw_df.copy()
 
