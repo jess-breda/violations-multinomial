@@ -137,3 +137,4 @@ dmypy.json
 .pyre/
 
 data/cleaned/by_animal/*.csv
+data/processed/dataset_alignment/*.csv
