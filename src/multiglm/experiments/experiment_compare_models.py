@@ -34,16 +34,12 @@ class ExperimentCompareModels(Experiment):
             self.fit_models = pd.DataFrame(columns=vars)
         self.eval_train = params.get("eval_train", False)
 
-    def run(self, min_training_stage=3):
+    def run(self):
         """
         Run experiment for all animals, sigmas, and models
         """
-        print("minimum training stage is ", self.min_training_stage)
         for animal_id in self.animals:
-            animal_df = self.df.query(
-                "animal_id == @animal_id and training_stage >= @self.min_training_stage"
-            )
-
+            animal_df = self.df.query("animal_id == @animal_id")
             print(f"\n >>>> evaluating animal {animal_id} <<<<")
             self.run_single_animal(animal_id, animal_df)
 
