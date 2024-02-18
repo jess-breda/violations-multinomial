@@ -28,12 +28,12 @@ class ExpFilter:
 
     def create_kernel(self):
         """
-        create an exp decay kernal with time constant tau and
+        create an exp decay kernel with time constant tau and
         kernel length = len factor * tau
         """
 
         return np.array(
-            [np.exp(-i / self.tau) for i in range(self.len_factor * self.tau)]
+            [np.exp(-i / self.tau) for i in range(self.len_factor * round(self.tau))]
         )
 
     def plot_kernel(self):
@@ -109,9 +109,9 @@ class ExpFilter:
 
         for session_id, session_data in source_df.groupby("session"):
             filtered_session = self.apply_filter_to_session(session_data.copy())
-            output_df.loc[
-                output_df["session"] == session_id, f"{self.column}_exp"
-            ] = filtered_session[f"{self.column}_exp"]
+            output_df.loc[output_df["session"] == session_id, f"{self.column}_exp"] = (
+                filtered_session[f"{self.column}_exp"]
+            )
 
             if self.verbose:
                 print(
