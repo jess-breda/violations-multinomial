@@ -20,6 +20,7 @@ Written by Jess Breda 2023-10-23
 Edited by Jess Breda 2024-02-06 for flexible data loading
 """
 
+import gzip
 import pickle
 
 from multiglm.utils.fitting_utils import get_taus_df
@@ -41,10 +42,7 @@ class Experiment:
 
         # set up data
         self.df = self.load_dataset()
-        self.min_training_stage = params.get(
-            "min_training_stage", 3
-        )  # TODO delete later
-        self.taus_df = get_taus_df(self.min_training_stage)
+        self.taus_df = get_taus_df()
 
         # set up train/test
         self.random_state = params.get("random_state", 47)
@@ -278,9 +276,36 @@ class Experiment:
         self,
         file_name,
         file_path="/Users/jessbreda/Desktop/github/animal-learning/data/results/",
+        compress=True,
     ):
         """
         Function to save the experiment object as a pickle file
         """
-        with open(file_path + file_name, "wb") as f:
-            pickle.dump(self, f)
+
+        if compress:
+            with gzip.open(file_path + file_name + ".gz", "wb") as f:
+                pickle.dump(self, f)
+
+        else:
+            with open(file_path + file_name, "wb") as f:
+                pickle.dump(self, f)
+
+
+def load_experiment(
+    save_name,
+    save_path="/Users/jessbreda/Desktop/github/animal-learning/data/results/",
+    compressed=True,
+):
+    """
+    function to load experiment object from pickle file
+    """
+
+    if compressed:
+        with gzip.open(save_path + save_name + ".gz", "rb") as f:
+            experiment = pickle.load(f)
+
+    else:
+        with open(save_path + save_name, "rb") as f:
+            experiment = pickle.load(f)
+
+    return experiment

@@ -848,11 +848,3 @@ class ModelVisualizerCompare(ModelVisualizer):
 
     def plot_delta_ll_by_train_test_size():
         pass
-
-
-def load_experiment(save_name, save_path="../data/results/"):
-
-    with open(save_path + save_name, "rb") as f:
-        experiment = pickle.load(f)
-
-    return experiment
