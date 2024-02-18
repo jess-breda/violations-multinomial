@@ -558,6 +558,26 @@ class ModelVisualizerTauSweep(ModelVisualizer):
 
         return None
 
+    def plot_tau_histogram(self, column, df=None, ax=None, title=None, **kwargs):
+        """
+        Function to make histogram of best fit taus for each animal for a
+        tau sweep of a given column. E.g. "prev_violation_tau"
+        """
+        if df is None:
+            df = self.find_best_fit(group="animal_id")
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+
+        sns.histplot(data=df, x=column, ax=ax, color="gray", **kwargs)
+
+        if title is None:
+            ax.set_title(f"Best Fit {column} $\\tau$) ")
+
+        ax.set_xlabel("$\\tau$")
+
+        return None
+
 
 class ModelVisualizerCompare(ModelVisualizer):
     """

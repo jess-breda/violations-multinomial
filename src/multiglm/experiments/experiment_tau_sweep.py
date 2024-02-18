@@ -6,23 +6,8 @@ multi.
 Written by Jess Breda
 """
 
-import pathlib
-import sys
 import pandas as pd
-from experiment import Experiment
-
-try:
-    [
-        sys.path.append(str(folder))
-        for folder in pathlib.Path("../src/").iterdir()
-        if folder.is_dir()
-    ]
-except:
-    [
-        sys.path.append(str(folder))
-        for folder in pathlib.Path("../../src/").iterdir()
-        if folder.is_dir()
-    ]
+from multiglm.experiments.experiment import Experiment
 
 
 class ExperimentTauSweep(Experiment):
