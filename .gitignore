@@ -138,3 +138,4 @@ dmypy.json
 
 data/cleaned/by_animal/*.csv
 data/processed/dataset_alignment/*.csv
+data/processed/old_rat_train_threshold.csv
