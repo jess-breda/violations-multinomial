@@ -1,2 +1,1 @@
-*.csv filter=lfs diff=lfs merge=lfs -text
-*.pkl filter=lfs diff=lfs merge=lfs -text
+data/results/2024_02_16_tau_sweep_prev_violation.pkl filter=lfs diff=lfs merge=lfs -text
