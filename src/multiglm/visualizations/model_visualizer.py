@@ -696,6 +696,19 @@ class ModelVisualizerCompare(ModelVisualizer):
 
         return pivot_df
 
+    def get_n_train_test_trails(self):
+        """
+        function that returns n train and test trials for each animal id
+        """
+
+        train_test_df = (
+            self.fit_models.groupby(["animal_id"])
+            .agg(n_train=("n_train_trials", "max"), n_test=("n_test_trials", "max"))
+            .reset_index()
+        )
+
+        return train_test_df
+
     # PLOTS
     def plot_model_comparison(
         self, type="point", hue=None, ax=None, ylim=None, **kwargs
@@ -846,5 +859,66 @@ class ModelVisualizerCompare(ModelVisualizer):
 
         return ax
 
-    def plot_delta_ll_by_train_test_size():
-        pass
+    def plot_delta_ll_by_train_test_size(
+        self, base_model_name, new_model_name, ax=None
+    ):
+
+        # get data
+        test_ll_delta = self.compute_delta_ll_pivot(
+            base_model_name, new_model_name, "nll"
+        )
+        n_trials = self.get_n_train_test_trails()
+        merged_df = pd.merge(test_ll_delta, n_trials, on="animal_id")
+
+        # plot
+        fig, ax = plt.subplots(1, 2, figsize=(15, 5))
+        sns.scatterplot(
+            data=merged_df,
+            x="n_train",
+            y="delta_ll",
+            ax=ax[0],
+            hue="animal_id",
+            legend=False,
+        )
+        sns.scatterplot(
+            data=merged_df, x="n_test", y="delta_ll", ax=ax[1], hue="animal_id"
+        )
+
+        for a in ax:
+            a.set(ylim=(0, None), xlim=(0, None), ylabel="$\Delta$ Test LL")
+
+        ax[0].set(xlabel="N Train Trials")
+        ax[1].set(xlabel="N Test Trials")
+        ax[1].legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0)
+
+        plt.suptitle(f"Model Improvement {base_model_name} -> {new_model_name}\n")
+
+        return None
+
+    def plot_delta_ll_by_violation_rate(self, base_model_name, new_model_name):
+
+        # get data
+        session_avg_hit_viol = pd.read_csv(
+            "/Users/jessbreda/Desktop/github/animal-learning/data/processed/from_eda/01_trained_session_avg_hit_viol_rates.csv"
+        )
+        test_ll_delta = self.compute_delta_ll_pivot(
+            base_model_name, new_model_name, "nll"
+        )
+
+        merged_df = pd.merge(test_ll_delta, session_avg_hit_viol, on="animal_id")
+
+        # plot
+        fig, ax = plt.subplots(figsize=(6, 5))
+        sns.scatterplot(
+            data=merged_df, x="trained_violation", y="delta_ll", hue="animal_id", ax=ax
+        )
+
+        _ = ax.set(
+            title=f"{base_model_name} -> {new_model_name}",
+            xlabel="Session Avg Violation Rate",
+            ylabel="$\Delta$ Test LL",
+            ylim=(0, None),
+            xlim=(0, 1),
+        )
+
+        ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0)
