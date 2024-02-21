@@ -58,7 +58,7 @@ class DesignMatrixGenerator:
             binary encoded labels with 0 for left and 1 for right
         """
 
-        y = df["choice"].dropna().astype(int).to_numpy()
+        y = df.query("choice == 0 or choice == 1")["choice"].astype(int).to_numpy()
         return y
 
     @staticmethod
@@ -125,7 +125,12 @@ class DesignMatrixGenerator:
         return X_copy
 
     def generate_base_matrix(
-        self, df, model_type="multi", return_labels=True, include_stage=False
+        self,
+        df,
+        model_type="multi",
+        return_labels=True,
+        include_stage=False,
+        trial_not_started=False,
     ):
         """
         Function to generate "base" design matrix given a dataframe
@@ -150,6 +155,11 @@ class DesignMatrixGenerator:
             If binary, returns binary encoded labels w/o prev_violation
         return_labels : bool (default=True)
             whether or not to return labels with design matrix
+        include_stage : bool (default=False)
+            whether to include the training stage as a feature
+        trial_not_started : bool (default=False)
+            whether to include the scaled n_trial_not_started column as a
+            feature
 
         returns
         -------
@@ -201,7 +211,25 @@ class DesignMatrixGenerator:
         )
 
         if include_stage:
-            X["stage"] = df.training_stage_cat
+            X["stage"] = df.training_stage
+
+        if trial_not_started:
+            print("Evaluating trial_not_started", trial_not_started)
+            if trial_not_started == "prev":
+                X["prev_trial_not_started"] = (
+                    df["n_prev_trial_not_started"] != 0
+                ).astype(int)
+            elif trial_not_started == "n_prev":
+                X["n_prev_trial_not_started"] = df["n_prev_trial_not_started"]
+            elif trial_not_started == "scaled_n_prev":
+                X["n_prev_trial_not_started_scaled"] = (
+                    df["n_prev_trial_not_started"]
+                    / df["n_prev_trial_not_started"].max()
+                )
+            else:
+                raise ValueError(
+                    "trial_not_started must be 'prev', 'n_prev' or 'scaled_n_prev'"
+                )
 
         # if binary, drop the violation trials and the prev_violation column
         if model_type == "binary":
@@ -383,7 +411,14 @@ class DesignMatrixGeneratorFilteredHistory(DesignMatrixGenerator):
         super().__init__()
         self.model_type = model_type
 
-    def generate_design_matrix(self, df, filter_params, interaction_pairs=None):
+    def generate_design_matrix(
+        self,
+        df,
+        filter_params,
+        interaction_pairs=None,
+        trial_not_started=False,
+        combine_prev_viol_not_stated=False,
+    ):
         """
         Function to generate a base design matrix with an exponential
         filter on the previous violation column.
@@ -424,7 +459,10 @@ class DesignMatrixGeneratorFilteredHistory(DesignMatrixGenerator):
 
         """
         X, y = super().generate_base_matrix(
-            df, model_type=self.model_type, return_labels=True
+            df,
+            model_type=self.model_type,
+            return_labels=True,
+            trial_not_started=trial_not_started,
         )
 
         for column, value in filter_params.items():
@@ -434,6 +472,15 @@ class DesignMatrixGeneratorFilteredHistory(DesignMatrixGenerator):
                 pass
             else:
                 X = super().exp_filter_column(X, tau=value, column=column)
+
+        # if combine_prev_viol_not_stated:
+        #     X["prev_disengaged"] = (
+        #         X["prev_violation_exp"] * X["n_prev_trial_not_started_scaled"]
+        #     )
+        #     # X.drop(
+        #     #     columns=["prev_violation", "n_prev_trial_not_started_scaled"],
+        #     #     inplace=True,
+        #     # )
 
         if interaction_pairs is not None:
             X = super().add_interaction_terms(X, interaction_pairs)
