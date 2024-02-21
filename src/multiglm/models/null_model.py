@@ -49,13 +49,15 @@ class NullModel:
         self.animal_id = animal_df.animal_id.unique()[0]
 
         if self.mode == "binary":
-            # Drop NaNs for binary mode
-            df = animal_df.dropna(subset=["choice"])
+            # Drop violations for binary mode
+            df = animal_df.query("choice != 2").copy()
             choice = df.choice
+            # assert df.choice in [0,1]
         elif self.mode == "multi":
             # Fill NaNs with 2 for multi mode
             df = animal_df.copy()
-            choice = df.choice.fillna(2)
+            choice = df.choice
+            # assert df.choice in [0,1,2]
 
         # Get test labels (0:L, 1:R, 2:V) & count occurences
         test_labels = choice[df["session"].isin(self.test_sessions).values]
