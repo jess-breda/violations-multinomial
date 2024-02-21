@@ -140,3 +140,4 @@ data/cleaned/by_animal/*.csv
 data/processed/dataset_alignment/*.csv
 data/processed/old_rat_train_threshold.csv
 data/results/2024_02_16_tau_sweep_prev_violation.pkl
+data/processed/from_eda/03_viol_iti_df.csv
