@@ -38,9 +38,9 @@ def fit_linear_model(df, predictor, features, whiten=False, plot=True):
         return model, predictions, r_squared, regressor_names, weights
 
 
-def plot_weights(ax, regressor_names, weights, title):
+def plot_weights(ax, regressor_names, weights, title, **kwargs):
     """ """
-    ax.bar(regressor_names, weights)
+    ax.bar(regressor_names, weights, **kwargs)
     ax.axhline(y=0, color="k")
 
     ax.set(xlabel="", ylabel="Weight", title=title)
