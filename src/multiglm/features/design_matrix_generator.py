@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 import operator
 from multiglm.features.exp_filter import ExpFilter
+from pandas.core.series import Series
 
 
 class DesignMatrixGenerator:
@@ -58,9 +59,9 @@ class DesignMatrixGenerator:
             if key == "final_cols":
                 continue
 
-            self.temp_X[key] = func(self.df)
+            self.X[key] = func(self.df)
 
-        self.X[self.config["final_cols"]] = self.temp_X[self.config["final_cols"]]
+        # self.X[self.config["final_cols"]] = self.temp_X[self.config["final_cols"]]
 
     @staticmethod
     def add_bias_column(df):
@@ -80,7 +81,7 @@ class DesignMatrixGenerator:
         return (col_data - col_data.mean()) / col_data.std()
 
     @staticmethod
-    def prev_trial_avg(df, col_names, mask_violations=True, normalize=True):
+    def prev_trial_avg(df, col_names, mask_violations=True, normalize=True) -> Series:
         """
         On current trial t, take the previous trials average of
         features in cols list.
@@ -161,7 +162,8 @@ class DesignMatrixGenerator:
 
         """
 
-        prev_col_data = df[col_name].shift().fillna(0)
+        prev_col_data = df[col_name]
+        prev_col_data = prev_col_data.shift().fillna(0)
 
         if method is not None:
             prev_col_data = DesignMatrixGenerator.apply_custom_method(
@@ -176,6 +178,7 @@ class DesignMatrixGenerator:
 
     @staticmethod
     def apply_custom_method(col_data, method, **kwargs):
+        return method(col_data, **kwargs)
         print(method)
         if method == "scale_by_max":
             out_col = DesignMatrixGenerator.scale_by_max(col_data)
