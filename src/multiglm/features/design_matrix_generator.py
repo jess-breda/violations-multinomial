@@ -1,10 +1,12 @@
 """
 Parent class for generating design matrices for different models.
 Written by Jess Breda, 2023-10-23
+Overhauled on 2024-03-01
 """
 
 import pandas as pd
 import numpy as np
+import operator
 from multiglm.features.exp_filter import ExpFilter
 
 
@@ -14,10 +16,11 @@ class DesignMatrixGenerator:
         self.config = config
         self.verbose = verbose
         self.animal_id = df.animal_id.iloc[0]
+        self.temp_X = pd.DataFrame()  # columns
         self.X = pd.DataFrame()
+        self.X["choice"] = df.choice  # FOR DEBUG INIT
 
         self.run_init_tests()
-        self.create_masks()
 
     def run_init_tests(self):
 
@@ -25,24 +28,39 @@ class DesignMatrixGenerator:
             len(self.df["animal_id"].unique()) == 1
         ), "More than 1 animal in dataframe!"
 
-    def create_masks(self):
+    def create_mask(df, mask_violations):
         """
-        masks used for zeroing out data given events. for example,
-        previous violation mask can be used to set all column value(s)
-        for all trials that followed a violation to be 0.
+        masks used for zeroing out data given events. This is generally
+        used when representing previous trial history. For example, a
+        the first trial in the session has no previous trial information
+        so this can be used to set to 0.
         """
 
-        self.session_boundaries_mask = self.df["session"].diff() == 0
+        session_boundaries_mask = df["session"].diff() == 0
 
-        was_previous_violation = (
-            self.df["violation"].shift() * self.session_boundaries_mask
-        ).fillna(0)
-        self.prev_violation_mask = was_previous_violation == 0
+        if not mask_violations:
+            return session_boundaries_mask
+        else:
+            was_previous_violation = (
+                df["violation"].shift() * session_boundaries_mask
+            ).fillna(0)
+
+            # counterintuitive, but want to set previous violations
+            # to 0 to be able to mask with
+            prev_violation_mask = was_previous_violation == 0
+
+            return session_boundaries_mask * prev_violation_mask
 
     def create(self):
 
         for key, func in self.config.items():
-            self.X[key] = func(self.df)
+
+            if key == "final_cols":
+                continue
+
+            self.temp_X[key] = func(self.df)
+
+        self.X[self.config["final_cols"]] = self.temp_X[self.config["final_cols"]]
 
     @staticmethod
     def add_bias_column(df):
@@ -50,22 +68,166 @@ class DesignMatrixGenerator:
         return np.ones(len(df), dtype="int")
 
     @staticmethod
-    def normalize_column(df, col):
+    def copy(df, col_name):
 
-        col_data = df[col]
+        return df[col_name]
+
+    @staticmethod
+    def normalize_column(df, col_name):
+
+        col_data = df[col_name]
 
         return (col_data - col_data.mean()) / col_data.std()
 
+    @staticmethod
+    def prev_trial_avg(df, col_names, mask_violations=True, normalize=True):
+        """
+        On current trial t, take the previous trials average of
+        features in cols list.
+
+        params
+        ------
+        df : pd.Dataframe
+            raw trial dataframe for an animal
+        cols : list
+            list of columns in df to take average of.
+            *EX*: ["s_a", "s_b"]
+        mask_violations : bool
+            if the previous trial was a violation, should the value
+            for the previous average be masked to or kept as is.
+            *EX*: if computing previous stimulus average, one
+            *may mask prev violations since the both stimuli may not
+            *have played.
+        normalize : bool, default = True
+            if avg column should use .normalize_column() method for
+            mean 0 and std 1
+        """
+
+        cols_data = df[col_names].copy()
+
+        # Shift to previous trial & average
+        cols_data["prev_avg"] = cols_data.shift().mean(axis=1).fillna(0)
+
+        if normalize:
+            cols_data["prev_avg"] = DesignMatrixGenerator.normalize_column(
+                cols_data, "prev_avg"
+            )
+
+        # Apply masks- see docstring above for context
+        mask = DesignMatrixGenerator.create_mask(df, mask_violations=mask_violations)
+
+        return cols_data["prev_avg"] * mask
+
+    @staticmethod
+    def combine_two_cols(df, col_names, operation):
+        """
+        method for combining two columns using operator libary
+
+        possible methods from operator class:
+            - .add
+            - .divide
+            - .mult
+            - .subtract
+        """
+
+        assert len(col_names) == 2, IndexError("Method only for two columns!")
+
+        return operation(df[col_names[0]], col_names[1])
+
+    @staticmethod
+    def prev_trial_value(
+        df,
+        col_name,
+        method=None,
+        mask_violations=True,
+        **kwargs,
+    ):
+        """
+        method for shifting the values of a column up one trial such
+        that on trial t, represents the values from trial t-1
+
+        params
+        ------
+        df :
+        col :
+        method :
+        mask_violations : bool, default = True
+
+        mapping : dict, default = None
+
+        kwargs :
+            if method is binary: comparison operator and value to compare to
+            if method is map: dict map to use
+
+        """
+
+        prev_col_data = df[col_name].shift().fillna(0)
+
+        if method is not None:
+            prev_col_data = DesignMatrixGenerator.apply_custom_method(
+                prev_col_data, method, **kwargs
+            )
+        else:
+            print("Raw values used for previous history")
+
+        mask = DesignMatrixGenerator.create_mask(df, mask_violations=mask_violations)
+
+        return prev_col_data * mask
+
+    @staticmethod
+    def apply_custom_method(col_data, method, **kwargs):
+        print(method)
+        if method == "scale_by_max":
+            out_col = DesignMatrixGenerator.scale_by_max(col_data)
+        elif method == "binarize":
+            out_col = DesignMatrixGenerator.binarize(col_data, **kwargs)
+        elif method == "map_values":
+            out_col = DesignMatrixGenerator.implement_map(col_data, **kwargs)
+        else:
+            raise KeyError(f"{method} is an unknown method!")
+
+        return out_col
+
+    @staticmethod
+    def scale_by_max(col_data):
+        """
+        method for scaling a column by it's maximum
+        value such that all the values are less than 1
+        """
+        return col_data / col_data.max()
+
+    @staticmethod
+    def binarize(col_data, comparison, value):
+        """
+        method for converting a column to a binary 0/1 int
+        given comparison logic and value
+
+        possible comparison options from operator class:
+            - eq : == equal
+            - ne : != not equal
+            - gt : > greater than
+            - lt : < less than
+            - ge : >= grater than or equal to
+            - lt : <= less than or equal to
+            - and_ : bit wise AND
+            - or_ : bit wise OR
+            - xor : bitwise XOR
+        """
+        return comparison(col_data, value).astype(int)
+
+    @staticmethod
+    def implement_map(col_data, mapping):
+        """
+        method for mapping from old to new column values
+        """
+        return col_data.replace(mapping)
+
 
 # METHODS TODO
-# previous_trial_binary(df, col)
-# previous_trial_scaled(df, col, mask_violation=bool)
-# previous_trial_averaged(df, cols, mask_violation=bool)
 # exp_filter_single_tau(df, col, tau=None, make_binary_history) if none, use LUT
-# exp_filter_sweep_tau(..., taus,...)
-# exp_filter_group_tau(..., taus,...)
-# copy(df, col)
-# exp_filter_sweep_tau
+# combination methods -> add, etc
+# labels
+
 
 # note some of these can be combined and might need to drop taus
 
@@ -74,645 +236,3 @@ class DesignMatrixGenerator:
 # label : {"name" : "choice", type = "binary/multi"}
 
 # ==== scraps below
-
-
-# self.df["prev_violation"] = (
-#     self.df["violation"].shift() * self.session_boundaries_mask
-# ).fillna(0)
-
-
-#     @staticmethod
-#     def one_hot_encode_labels(df):
-#         """
-#         Function to one-hot encode choice labels for each trial. In
-#         the case of the rat data, this is a 3-dimensional vector
-#         left, right or violation (C = 3). Note this function is
-#         flexible to the number of choice options (C).
-
-#         params
-#         ------
-#         df : pd.DataFrame
-#             dataframe with columns `choice` likely generated by
-#             get_rat_viol_data()
-
-#         returns
-#         -------
-#         Y : np.ndarray, shape (N, C), where typically C = 3
-#             one-hot encoded choice labels for each trial as left,
-#             right or violation: [[1 0 0] , [0 1 0], [0 0 1]]
-#         """
-
-#         Y = pd.get_dummies(df["choice"], "choice").to_numpy(copy=True)
-#         return Y
-
-#     @staticmethod
-#     def encode_binary_lr_labels(df):
-#         """
-#         Function to encode choice labels for each trial as binary
-#         left or right (C = 2) and drop data for violation trials
-
-#         params
-#         ------
-#         df : pd.DataFrame
-#             dataframe with columns `choice` likely generated by
-#             get_rat_viol_data() or get_rat_data()
-
-#         returns
-#         -------
-#         y : np.ndarray, shape (N, 1)
-#             binary encoded labels with 0 for left and 1 for right
-#         """
-
-#         y = df.query("choice == 0 or choice == 1")["choice"].astype(int).to_numpy()
-#         return y
-
-#     @staticmethod
-#     def exp_filter_column(X, tau, column, verbose=False, drop=True):
-#         """
-#         Function to apply exponential filter to a column in a dataframe
-#         and drop the original column
-
-#         params
-#         ------
-#         X : pd.DataFrame
-#             dataframe with column to be filtered
-#         tau : float
-#         column : str
-#             column to apply filter to
-#         verbose : bool (default=False)
-#             whether to print out progress
-
-#         returns
-#         -------
-#         X_filtered : pd.DataFrame
-#             dataframe with filtered column and original column dropped
-
-#         """
-#         X_filtered = ExpFilter(
-#             tau, column=column, verbose=verbose
-#         ).apply_filter_to_dataframe(X)
-
-#         # sometimes don't drop the column for visualization
-#         if drop:
-#             X_filtered.drop(columns=[column], inplace=True)
-
-#         return X_filtered
-
-#     @staticmethod
-#     def add_interaction_terms(X, interaction_pairs):
-#         """
-#         Add interaction terms to the design matrix X.
-
-#         params
-#         ------
-#         X : pd.DataFrame
-#             design matrix to add interaction terms to
-#         interaction_pairs : list of tuples
-#             each tuple contains the names of two columns to interact
-#             For example, if the tuple is ("s_a" and "prev_violation_exp),
-#             then the design matrix will have a column
-#             `s_a_x_prev_violation_exp` which is the element-wise product
-#             of the two columns.
-
-#         returns
-#         -------
-#         X_copy : pd.DataFrame
-#             design matrix with interaction terms added
-#         """
-
-#         X_copy = X.copy()
-
-#         for pair in interaction_pairs:
-#             col1, col2 = pair
-#             interaction_term = f"{col1}_x_{col2}"
-#             X_copy[interaction_term] = X_copy[col1] * X_copy[col2]
-
-#         return X_copy
-
-#     def generate_base_matrix(
-#         self,
-#         df,
-#         model_type="multi",
-#         return_labels=True,
-#         include_stage=False,
-#         trial_not_started=False,
-#         prev_disengaged=False,
-#     ):
-#         """
-#         Function to generate "base" design matrix given a dataframe
-#         with violations tracked. In this case base means:
-#             - normalized s_a, s_b columns
-#             - prev_violation column (multi only)
-#             - prev_sound_avg column
-#             - prev_correct column
-#             - prev_choice column
-#             - bias column
-#             - session number column (for merging & train/test split)
-
-#         params
-#         ------
-#         df : pd.DataFrame
-#             dataframe with columns `s_a` `s_b` `session`, `violation`
-#             `correct_side` and `choice`, likely generated by
-#             get_rat_viol_data() or get_rat_date()
-#         model_type : str (default="multi")
-#             model design matrix will be used for. If multi, returns
-#             one-hot encoded labels and has a prev_violation column.
-#             If binary, returns binary encoded labels w/o prev_violation
-#         return_labels : bool (default=True)
-#             whether or not to return labels with design matrix
-#         include_stage : bool (default=False)
-#             whether to include the training stage as a feature
-#         trial_not_started : bool (default=False)
-#             whether to include the scaled n_trial_not_started column as a
-#             feature
-
-#         returns
-#         -------
-#         X : pd.DataFrame, shape (N, 8) if multi, (N, 7) if binary
-#             design matrix with regressors for s_a, s_b, prev_violation,
-#             prev sound avg, correct side, choice info, bias and session id
-#             (for merging). If model_type is binary then prev_violation
-#             column is removed
-#         Y : np.ndarray, shape (N, 3) if multi-class (N, ) if binary
-#             when return_labels=True.
-#         """
-
-#         # Check
-#         assert len(df["animal_id"].unique()) == 1, "More than 1 animal in dataframe"
-
-#         # Initialize
-#         X = pd.DataFrame()
-#         stim_cols = ["s_a", "s_b"]
-#         X["session"] = df.session
-
-#         # Masks- if first trial in a session and/or previous trial
-#         # was a violation, "prev" variables get set to 0
-#         self.session_boundaries_mask = df["session"].diff() == 0
-#         X["prev_violation"] = (
-#             df["violation"].shift() * self.session_boundaries_mask
-#         ).fillna(0)
-#         self.prev_violation_mask = X["prev_violation"] == 0
-
-#         # Stimuli (s_a, s_b) get normalized
-#         for col in stim_cols:
-#             X[stim_cols] = self.normalize_column(df[stim_cols])
-
-#         # Average previous stimulus (s_a, s_b) loudness
-#         X["prev_sound_avg"] = df[stim_cols].shift().mean(axis=1)
-#         X["prev_sound_avg"] = self.normalize_column(X["prev_sound_avg"])
-#         X["prev_sound_avg"] *= self.session_boundaries_mask * self.prev_violation_mask
-
-#         # Prev correct side (L, R) (0, 1) -> (-1, 1),
-#         X["prev_correct"] = (
-#             df.correct_side.replace({0: -1}).astype(int).shift()
-#             * self.session_boundaries_mask
-#             * self.prev_violation_mask
-#         )
-
-#         # prev choice regressors (L, R, V) (0, 1, Nan) -> (-1, 1, 0),
-#         X["prev_choice"] = (
-#             df.choice.replace({0: -1, 2: 0}).astype(int).shift()
-#             * self.session_boundaries_mask
-#         )
-
-#         if include_stage:
-#             X["stage"] = df.training_stage
-
-#         if trial_not_started:
-#             print("Evaluating trial_not_started", trial_not_started)
-#             if trial_not_started == "prev":
-#                 X["prev_trial_not_started"] = (
-#                     df["n_prev_trial_not_started"] != 0
-#                 ).astype(int)
-#             elif trial_not_started == "n_prev":
-#                 X["n_prev_trial_not_started"] = df["n_prev_trial_not_started"]
-#             elif trial_not_started == "scaled_n_prev":
-#                 X["n_prev_trial_not_started_scaled"] = (
-#                     df["n_prev_trial_not_started"]
-#                     / df["n_prev_trial_not_started"].max()
-#                 )
-#             else:
-#                 raise ValueError(
-#                     "trial_not_started must be 'prev', 'n_prev' or 'scaled_n_prev'"
-#                 )
-#         if prev_disengaged:
-#             X["prev_not_started"] = (df["n_prev_trial_not_started"] != 0).astype(int)
-#             X["prev_disengaged"] = (X.prev_not_started == 1) | (X.prev_violation == 1)
-
-#             X["prev_disengaged"] = X["prev_disengaged"].astype(int)
-
-#             X.drop(columns=["prev_violation", "prev_not_started"], inplace=True)
-
-#         # if binary, drop the violation trials and the prev_violation column
-#         if model_type == "binary":
-#             X = X[df["violation"] != 1].reset_index(drop=True)
-#             X.drop(columns=["prev_violation"], inplace=True)
-
-#         X.fillna(0, inplace=True)  # fill nans that come from shift()
-#         X.insert(0, "bias", 1)  # add bias column
-
-#         if return_labels:
-#             if model_type == "binary":
-#                 # make choice vector, drop nans (violations) to match X
-#                 Y = self.encode_binary_lr_labels(df)
-#             elif model_type == "multi":
-#                 Y = self.one_hot_encode_labels(df)
-
-#             else:
-#                 raise ValueError(
-#                     f"model_type must be binary or multi, currently set to {model_type}"
-#                 )
-#             return X, Y
-#         else:
-#             return X
-
-
-# class DesignMatrixGeneratorPsytrack(DesignMatrixGenerator):
-#     """
-#     Generate design matrix specific to psytrack model
-#     with regressors:
-#         s_a, s_b, prev_choice, prev_correct, prev_stimulus
-#     """
-
-#     def __init__(self, model_type="binary"):
-#         """
-#         model_type : str (default="binary")
-#             model design matrix will be used for. If multi, returns
-#             one-hot encoded labels and has a prev_violation column.
-#             If binary, returns binary encoded labels w/o prev_violation
-#         """
-#         super().__init__()
-#         self.model_type = model_type
-
-#     def generate_design_matrix(self, df, filter_params):
-#         """
-#         Function to generate design matrix with psytrack
-#         regressors
-
-#         params
-#         ------
-#         df : pd.DataFrame
-#             dataframe with columns `s_a` `s_b` `session`, `violation`
-#             `correct_side` and `choice`, likely generated by
-#             get_rat_viol_data() or get_rat_data()
-#         filter_params : dict
-#             kept for consistency with other design matrix generators
-#             but not used here since psytrack regressors are not
-#             filtered
-#         """
-
-#         X, y = super().generate_base_matrix(
-#             df, model_type=self.model_type, return_labels=True
-#         )
-
-#         # drop prev_violation column since its not a psytrack regressor
-#         if self.model_type == "multi":
-#             X.drop(columns=["prev_violation"], inplace=True)
-
-#         return X, y
-
-
-# class DesignMatrixGeneratorInteractions(DesignMatrixGenerator):
-#     def __init__(self, model_type="multi"):
-#         """
-#         model_type : str (default="multi")
-#             model design matrix will be used for. If multi, returns
-#             one-hot encoded labels and has a prev_violation column.
-#             If binary, returns binary encoded labels w/o prev_violation
-#         """
-#         super().__init__()
-#         self.model_type = model_type
-
-#     @staticmethod
-#     def add_interaction_terms(X, interaction_pairs):
-#         """
-#         Add interaction terms to the design matrix X.
-
-#         params
-#         ------
-#         X : pd.DataFrame
-#             design matrix to add interaction terms to
-#         interaction_pairs : list of tuples
-#             each tuple contains the names of two columns to interact
-
-#         returns
-#         -------
-#         X_copy : pd.DataFrame
-#             design matrix with interaction terms added
-#         """
-
-#         X_copy = X.copy()
-
-#         for pair in interaction_pairs:
-#             col1, col2 = pair
-#             interaction_term = f"{col1}_x_{col2}"
-#             X_copy[interaction_term] = X_copy[col1] * X_copy[col2]
-
-#         return X_copy
-
-#     def generate_design_matrix(self, df, filter_params, interaction_pairs):
-#         """
-#         Function to generate design matrix with interaction terms
-#         and exponential filter applied to a column.
-
-#         params
-#         ------
-#         df : pd.DataFrame
-#             dataframe with columns `s_a` `s_b` `session`, `violation`
-#             `correct_side` and `choice`, likely generated by
-#             get_rat_viol_data() or get_rat_data()
-#         filter_params : dict
-#             dictionary with keys, value pairs indicating the column
-#             to filter and the tau to filter with. For example,
-#             {"prev_violation": 2} will filter the prev_violation
-#             column with a tau of 2. If the value is -1, the column
-#             will be dropped from the design matrix and no filtering
-#             will be applied. If the value is 0, no filtering will be
-#             applied and no dropping will occur. These -1 and 0 values
-#             are used in Experiment_Model_Compare.py to allow for
-#             model comparison with and without history.
-#         column : str
-#             column to apply filter to
-#         interaction_pairs : list of tuples
-#             each tuple contains the names of two columns to interact
-
-#         returns
-#         -------
-#         X  : pd.DataFrame (N, D + 2, bias + session id)
-#             design matrix with columns `s_a` `s_b` `prev_stimuli`
-#             `prev_correct_side` `prev_choice` and `session` for
-#             train/test split. Interaction columns added for each "interaction_pair"
-#             and exp filter applied to `filter_column`
-
-#         y : np.array (N,C) if multi, (N, 1) if binary
-#             labels for design matrix, where C is the number of classes
-#         """
-
-#         X, y = super().generate_base_matrix(
-#             df, model_type=self.model_type, return_labels=True
-#         )
-
-#         if len(filter_params):
-#             for column, value in filter_params.items():
-#                 if value == -1:
-#                     X.drop(columns=[column], inplace=True)
-#                 elif value == 0:
-#                     pass
-#                 else:
-#                     X = super().exp_filter_column(X, tau=value, column=column)
-
-#         X = self.add_interaction_terms(X, interaction_pairs)
-
-#         return X, y
-
-
-# class DesignMatrixGeneratorFilteredHistory(DesignMatrixGenerator):
-#     """
-#     Class for generating a design matrix with a flexible
-#     number of filtered history columns. Also possible to
-#     add interaction terms.
-#     """
-
-#     def __init__(self, model_type="multi"):
-#         """
-#         model_type : str (default="multi")
-#             model design matrix will be used for. If multi, returns
-#             one-hot encoded labels and has a prev_violation column.
-#             If binary, returns binary encoded labels w/o prev_violation
-#         """
-#         super().__init__()
-#         self.model_type = model_type
-
-#     def generate_design_matrix(
-#         self,
-#         df,
-#         filter_params,
-#         interaction_pairs=None,
-#         trial_not_started=False,
-#         combine_prev_viol_not_stated=False,
-#         prev_disengaged=False,
-#     ):
-#         """
-#         Function to generate a base design matrix with an exponential
-#         filter on the previous violation column.
-
-#         params
-#         ------
-#         df : pd.DataFrame
-#             dataframe with columns `s_a` `s_b` `session`, `violation`
-#             `correct_side` and `choice`, likely generated by
-#             get_rat_viol_data() or get_rat_data()
-#         filter_params : dict
-#             dictionary with keys, value pairs indicating the column
-#             to filter and the tau to filter with. For example,
-#             {"prev_violation": 2} will filter the prev_violation
-#             column with a tau of 2. If the value is -1, the column
-#             will be dropped from the design matrix and no filtering
-#             will be applied. If the value is 0, no filtering will be
-#             applied and no dropping will occur. These -1 and 0 values
-#             are used in Experiment_Model_Compare.py to allow for
-#             model comparison with and without history.
-#         interaction_pairs : list of tuples (default=None)
-#             each tuple contains the names of two columns to interact
-#             and add to the design matrix. See parent class for more
-#             details.
-
-#         returns
-#         -------
-#         X  : pd.DataFrame (N x D)
-#             design matrix with base columns (`s_a` `s_b` `prev_stimuli`
-#             `prev_correct_side` `prev_choice`, `prev_violation`)
-#             and any filtered columns from history_params. Note if the column
-#             is filtered, it will be dropped from the design matrix. Also,
-#             there is a `session` for train/test split
-#             Note: if binary, then there is no `prev_violation` column!
-
-#         y : np.array (N x C) if multi, N x 1 if binary
-#             labels for design matrix, where C is the number of classes
-
-#         """
-#         X, y = super().generate_base_matrix(
-#             df,
-#             model_type=self.model_type,
-#             return_labels=True,
-#             trial_not_started=trial_not_started,
-#             prev_disengaged=prev_disengaged,
-#         )
-
-#         for column, value in filter_params.items():
-#             if value == -1:
-#                 X.drop(columns=[column], inplace=True)
-#             elif value == 0:
-#                 pass
-#             else:
-#                 X = super().exp_filter_column(X, tau=value, column=column)
-
-#         # if combine_prev_viol_not_stated:
-#         #     X["prev_disengaged"] = (
-#         #         X["prev_violation_exp"] * X["n_prev_trial_not_started_scaled"]
-#         #     )
-#         #     # X.drop(
-#         #     #     columns=["prev_violation", "n_prev_trial_not_started_scaled"],
-#         #     #     inplace=True,
-#         #     # )
-
-#         if interaction_pairs is not None:
-#             X = super().add_interaction_terms(X, interaction_pairs)
-
-#         return X, y
-
-
-# class DesignMatrixGeneratorPrevViolations(DesignMatrixGenerator):
-#     """
-#     Class for generating a design matrix with a flexible
-#     number of filtered history columns. Also possible to
-#     add interaction terms.
-#     """
-
-#     def __init__(self, model_type="multi"):
-#         """
-#         model_type : str (default="multi")
-#             model design matrix will be used for. If multi, returns
-#             one-hot encoded labels and has a prev_violation column.
-#             If binary, returns binary encoded labels w/o prev_violation
-#         """
-#         super().__init__()
-#         self.model_type = model_type
-
-#     def generate_design_matrix(self, df, filter_params, interaction_pairs=None):
-#         """
-#         Function to generate a base design matrix with an exponential
-#         filter on the previous violation column.
-
-#         params
-#         ------
-#         df : pd.DataFrame
-#             dataframe with columns `s_a` `s_b` `session`, `violation`
-#             `correct_side` and `choice`, likely generated by
-#             get_rat_viol_data() or get_rat_data()
-#         filter_params : dict
-#             dictionary with keys, value pairs indicating the column
-#             to filter and the tau to filter with. For example,
-#             {"prev_violation": 2} will filter the prev_violation
-#             column with a tau of 2. If the value is -1, the column
-#             will be dropped from the design matrix and no filtering
-#             will be applied. If the value is 0, no filtering will be
-#             applied and no dropping will occur. These -1 and 0 values
-#             are used in Experiment_Model_Compare.py to allow for
-#             model comparison with and without history.
-#         interaction_pairs : list of tuples (default=None)
-#             each tuple contains the names of two columns to interact
-#             and add to the design matrix. See parent class for more
-#             details.
-
-#         returns
-#         -------
-#         X  : pd.DataFrame (N x D)
-#             design matrix with base columns (`s_a` `s_b` `prev_stimuli`
-#             `prev_correct_side` `prev_choice`, `prev_violation`)
-#             and any filtered columns from history_params. Note if the column
-#             is filtered, it will be dropped from the design matrix. Also,
-#             there is a `session` for train/test split
-#             Note: if binary, then there is no `prev_violation` column!
-
-#         y : np.array (N x C) if multi, N x 1 if binary
-#             labels for design matrix, where C is the number of classes
-
-#         """
-#         X, y = super().generate_base_matrix(
-#             df, model_type=self.model_type, return_labels=True
-#         )
-
-#         for column, value in filter_params.items():
-#             if value == -1:
-#                 X.drop(columns=[column], inplace=True)
-#             elif value == 0:
-#                 pass
-#             else:
-#                 X = super().exp_filter_column(X, tau=value, column=column)
-
-#         if interaction_pairs is not None:
-#             X = super().add_interaction_terms(X, interaction_pairs)
-
-#         return X, y
-
-
-# class DesignMatrixGeneratorPrevDisengaged(DesignMatrixGenerator):
-#     """
-#     Class for generating a design matrix with a flexible
-#     number of filtered history columns. Also possible to
-#     add interaction terms.
-#     """
-
-#     def __init__(self, model_type="multi"):
-#         """
-#         model_type : str (default="multi")
-#             model design matrix will be used for. If multi, returns
-#             one-hot encoded labels and has a prev_violation column.
-#             If binary, returns binary encoded labels w/o prev_violation
-#         """
-#         super().__init__()
-#         self.model_type = model_type
-
-#     def generate_design_matrix(
-#         self, df, filter_params, prev_disengaged=True, interaction_pairs=None
-#     ):
-#         """
-#         Function to generate a base design matrix with an exponential
-#         filter on the previous violation column.
-
-#         params
-#         ------
-#         df : pd.DataFrame
-#             dataframe with columns `s_a` `s_b` `session`, `violation`
-#             `correct_side` and `choice`, likely generated by
-#             get_rat_viol_data() or get_rat_data()
-#         filter_params : dict
-#             dictionary with keys, value pairs indicating the column
-#             to filter and the tau to filter with. For example,
-#             {"prev_violation": 2} will filter the prev_violation
-#             column with a tau of 2. If the value is -1, the column
-#             will be dropped from the design matrix and no filtering
-#             will be applied. If the value is 0, no filtering will be
-#             applied and no dropping will occur. These -1 and 0 values
-#             are used in Experiment_Model_Compare.py to allow for
-#             model comparison with and without history.
-#         interaction_pairs : list of tuples (default=None)
-#             each tuple contains the names of two columns to interact
-#             and add to the design matrix. See parent class for more
-#             details.
-
-#         returns
-#         -------
-#         X  : pd.DataFrame (N x D)
-#             design matrix with base columns (`s_a` `s_b` `prev_stimuli`
-#             `prev_correct_side` `prev_choice`, `prev_violation`)
-#             and any filtered columns from history_params. Note if the column
-#             is filtered, it will be dropped from the design matrix. Also,
-#             there is a `session` for train/test split
-#             Note: if binary, then there is no `prev_violation` column!
-
-#         y : np.array (N x C) if multi, N x 1 if binary
-#             labels for design matrix, where C is the number of classes
-
-#         """
-#         X, y = super().generate_base_matrix(
-#             df,
-#             model_type=self.model_type,
-#             return_labels=True,
-#             prev_disengaged=prev_disengaged,
-#         )
-
-#         for column, value in filter_params.items():
-#             if value == -1:
-#                 X.drop(columns=[column], inplace=True)
-#             elif value == 0:
-#                 pass
-#             else:
-#                 X = super().exp_filter_column(X, tau=value, column=column)
-
-#         if interaction_pairs is not None:
-#             X = super().add_interaction_terms(X, interaction_pairs)
-
-#         return X, y
