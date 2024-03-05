@@ -11,9 +11,8 @@ from multiglm.features.design_matrix_generator import *
 
 ## CLASS
 class DesignMatrixGeneratorPWM(DesignMatrixGenerator):
-    def __init__(self, df, config):
-
-        super().__init__(df, config)
+    def __init__(self, df, config, verbose=False):
+        super().__init__(df, config, verbose)
         self.X["choice"] = df.choice  # FOR DEBUG INIT
         self.run_init_tests()
 
@@ -24,9 +23,9 @@ class DesignMatrixGeneratorPWM(DesignMatrixGenerator):
         ), "More than 1 animal in dataframe!"
 
     def create(self):
-        X = super().create()
+        X, y = super().create()
 
-        return X
+        return X, y
 
 
 ## METHODS

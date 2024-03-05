@@ -13,9 +13,10 @@ from multiglm.features.exp_filter import ExpFilter
 
 ## CLASS
 class DesignMatrixGenerator:
-    def __init__(self, df, config):
+    def __init__(self, df, config, verbose=False):
         self.df = df
         self.config = config
+        self.verbose = verbose
         self.X = pd.DataFrame()
         self.split_data_and_label_configs()
 
@@ -33,7 +34,6 @@ class DesignMatrixGenerator:
             "labels" : {
                 column_name : "column_name",
                 mapping     : { old_value : new_value, ...}
-                dropna      : True/False (can use this to drop violations in binary)
             }
         """
 
@@ -41,13 +41,11 @@ class DesignMatrixGenerator:
         self.config_data = {}
 
         if "labels" not in self.config.keys():
-            print("No labels found in config, only creating data matrix.")
-
             self.config_data = self.config
 
         else:
             for key, value in self.config.items():
-                if value == "labels":
+                if key == "labels":
                     self.config_labels = value
 
                 else:
@@ -55,11 +53,97 @@ class DesignMatrixGenerator:
 
     def create(self):
 
+        self.X = self.create_data_matrix()
+        self.y = self.create_labels()
+
+        return self.X, self.y
+
+    def create_data_matrix(self):
+
+        if self.verbose:
+            print(f"DMG: Creating data matrix with columns: {self.config_data.keys()}")
+
         for key, func in self.config_data.items():
 
             self.X[key] = func(self.df)
 
         return self.X
+
+    def create_labels(self):
+        """
+        Function to create labels for either binary encoding
+        or one hot encoding, for bernoulli or multinomial models,
+        respectively.
+        """
+
+        if len(self.config_labels) == 0:
+            if self.verbose:
+                print("DMG: No labels found in config, returning None.")
+            return None
+
+        if self.verbose:
+            print(
+                f"DMG: Creating labels with column: {self.config_labels['column_name']}."
+            )
+
+        labels_col = self.df[self.config_labels["column_name"]]
+
+        if "mapping" in self.config_labels.keys():
+            labels_col = remap_values(labels_col, self.config_labels["mapping"])
+
+        if labels_col.isna().any():
+            labels_col = self.drop_nan_rows_for_data_and_labels(labels_col)
+
+        if labels_col.nunique() > 2:
+            y = self.one_hot_encode(labels_col)
+        else:
+            y = self.binary_encode(labels_col)
+
+        return y
+
+    def drop_nan_rows_for_data_and_labels(self, labels_col: Series) -> Series:
+        """
+        Drops rows from the data matrix (X) and labels where the label is NaN.
+        """
+        if len(self.X) != len(labels_col):
+            raise ValueError("Data and label lengths do not match! Check your mapping!")
+
+        # find valid indices (where labels_col is not NaN)
+        not_nan_indices = labels_col.dropna().index
+
+        if self.verbose:
+            print(
+                f"DMG: Dropping {len(self.X) - len(not_nan_indices)} nan rows from data and labels."
+            )
+
+        # filter the dataset and labels based on these indices
+        self.X = self.X.loc[not_nan_indices]
+        return labels_col.loc[not_nan_indices]
+
+    def one_hot_encode(self, col: Series) -> np.ndarray:
+        """
+        For one hot encoding, will dummify in ascending
+        order wrt to index in order. For example:
+        1 : [1, 0, 0, 0]
+        2 : [0, 1, 0, 0]
+        3 : [0, 0, 1, 0]
+        7 : [0, 0, 0, 1]
+        """
+        if self.verbose:
+            print("DMG: One hot encoding labels.")
+
+        self.y = pd.get_dummies(col).to_numpy(dtype=int, copy=True)
+
+        return self.y
+
+    def binary_encode(self, col: Series) -> np.ndarray:
+
+        if self.verbose:
+            print("DMG: Binary encoding labels.")
+
+        self.y = col.to_numpy(dtype=int, copy=True)
+
+        return self.y
 
 
 ## METHODS
@@ -121,12 +205,13 @@ def mask_prev_event(col: Series, event_bool: Series, sessions: Series) -> Series
     return col * mask
 
 
-def add_bias_column(len: int) -> Series:
+def add_bias_column(len_var) -> Series:
     """
     method for creating a bias column of 1s
+    given a variable (df, column, etc.)
     """
 
-    return np.ones(len, dtype="int")
+    return np.ones(len(len_var), dtype="int")
 
 
 def copy(col: Series) -> Series:
