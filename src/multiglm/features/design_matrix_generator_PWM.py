@@ -30,9 +30,87 @@ class DesignMatrixGeneratorPWM(DesignMatrixGenerator):
 
 ## METHODS
 
-# prev violation mask
-# prev sound average
-# prev choice
-# prev correct
+
+def prev_avg_stim(df, mask_prev_violation):
+    """
+    Function to create previous stimulus avg loudness feature
+    as done by Roy et al. 2021 in Psytrack paper.
+    """
+
+    avg_stim = combine_two_cols(df.s_a, df.s_b, operation="mean")
+
+    avg_stim_standardized = standardize(avg_stim)
+
+    prev_avg_stim = shift_n_trials_up(avg_stim_standardized, df.session, shift_size=1)
+
+    if mask_prev_violation:
+        prev_avg_stim = mask_prev_event(prev_avg_stim, df.violation, df.session)
+
+    return prev_avg_stim
+
+
+def prev_correct_side(df):
+    """
+    Function to create a previous correct side feature to
+    approximate win-stay-lose-switch behavior. Mapping:
+        left (0)   ->  -1
+        right (1)  ->  1
+        violations ->  masked to 0 (animal does not know correct side)
+    """
+
+    correct = remap_values(df.correct_side, mapping={0: -1})
+
+    prev_correct = shift_n_trials_up(correct, df.session, shift_size=1)
+
+    prev_correct = mask_prev_event(prev_correct, df.violation, df.session)
+
+    return prev_correct.astype(int)
+
+
+def prev_choice(df):
+    """
+    Function to create a previous choice feature to approximate
+    side bias behavior. Mapping:
+        left (0)       ->  -1
+        right (1)      ->   1
+        violations (2) ->   0 (has it's own prev_viol regressor)
+    """
+
+    choice = remap_values(df.choice, mapping={0: -1, 2: 0})
+
+    prev_choice = shift_n_trials_up(choice, df.session, shift_size=1)
+
+    return prev_choice.astype(int)
+
+
+def prev_violation(df):
+    """
+    Function to create a previous violation feature
+    Mapping:
+        left or right (0, 1) -> 0
+        violation        (2) -> 1
+    """
+
+    choice = remap_values(df.choice, mapping={1: 0, 2: 1})
+
+    prev_violation = shift_n_trials_up(choice, df.session, shift_size=1)
+
+    return prev_violation.astype(int)
+
+
+def filtered_prev_viol(df, tau):
+    """
+    Function to create a filtered previous violation feature
+    given a specified time constant (tau) for the exponential filter.
+    """
+
+    prev_viol = prev_violation(df)
+    prev_viol.name = "prev_viol"  # needed for ExpFilter class
+
+    filtered_prev_viol = exp_filter_column(prev_viol, df.session, tau)
+
+    return filtered_prev_viol
+
 
 # binary and multi label maps?
+# interaction terms

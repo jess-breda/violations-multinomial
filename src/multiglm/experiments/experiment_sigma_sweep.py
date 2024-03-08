@@ -54,10 +54,8 @@ class ExperimentSigmaSweep(Experiment):
         a single animal that sweeps over sigmas
         """
         # get filter params (if any) & build design matrix
-        filter_params = super().create_filter_params(animal_id, self.model_name)
-        X, Y = super().generate_design_matrix_for_animal(
-            animal_df, filter_params, self.model_name
-        )
+        # filter_params = super().create_filter_params(animal_id, self.model_name)
+        X, Y = super().generate_design_matrix_for_animal(animal_df, self.model_name)
 
         # train test split
         tts = super().get_animal_train_test_sessions(animal_df)
@@ -86,6 +84,6 @@ class ExperimentSigmaSweep(Experiment):
                 "weights": W_fit,
                 "n_train_trials": len(X_train),
                 "n_test_trials": len(X_test),
-                **{f"{key}_tau": value for key, value in filter_params.items()},
+                # **{f"{key}_tau": value for key, value in filter_params.items()},
             }
             super().store(data, self.fit_models)

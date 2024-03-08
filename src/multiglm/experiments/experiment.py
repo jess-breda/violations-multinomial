@@ -28,6 +28,7 @@ from multiglm.utils.train_test_splitter import TrainTestSplitter
 from multiglm.models.null_model import NullModel
 from multiglm.data.dataset_loader import DatasetLoader
 from multiglm.data import ANIMAL_IDS
+from multiglm.features.design_matrix_generator_PWM import DesignMatrixGeneratorPWM
 
 
 class Experiment:
@@ -67,7 +68,7 @@ class Experiment:
 
         return loader.load_data()
 
-    def generate_design_matrix_for_animal(self, animal_df, filter_params, model_name):
+    def generate_design_matrix_for_animal(self, animal_df, model_name, verbose=False):
         """
         Function to generate the design matrix and labels
         with the given animal data and tau and the model configs
@@ -78,11 +79,10 @@ class Experiment:
         animal_df : pd.DataFrame
             dataframe of animal data for a single animal to generate
             design matrix from
-        filter_params : dict
-            dictionary with keys, value pairs indicating the column
-            to filter and the tau to filter with. For example,
-            {"prev_violation": 2} will filter the prev_violation
-            column with a tau of 2.
+
+        model_name : str
+            model_config primary key to determine which model and subsequent
+            dmg configuration to use
 
         returns
         -------
@@ -91,25 +91,11 @@ class Experiment:
         y : np.ndarray (N,C) if multi, (N,1) if binary model type
             labels for the animal
         """
-        # Determine class for design matrix generator e.g. DesignMatrixGeneratorInteractions
-        design_matrix_generator_class = self.model_config[model_name][
-            "design_matrix_generator"
-        ]
 
-        # Determine arguments for design matrix generator e.g. {filter_column": "prev_violation"}
-        design_matrix_args = self.model_config[model_name].get(
-            "design_matrix_generator_args", {}
-        )
+        dmg_config = self.model_config[model_name]["dmg_config"]
+        dmg = DesignMatrixGeneratorPWM(animal_df, dmg_config, verbose)
 
-        # Create design matrix generator object e.g. DesignMatrixGeneratorInteractions(model_type="multi")
-        design_matrix_generator = design_matrix_generator_class(
-            model_type=self.model_config[model_name]["model_type"]
-        )
-
-        # Generate design matrix (X) and labels (y) given args & model_type
-        X, y = design_matrix_generator.generate_design_matrix(
-            df=animal_df, filter_params=filter_params, **design_matrix_args
-        )
+        X, y = dmg.create()
 
         return X, y
 
