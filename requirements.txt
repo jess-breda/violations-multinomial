@@ -6,6 +6,7 @@ scipy
 pandas
 seaborn
 matplotlib
+matplotlib-venn
 jupyterlab
 scikit-learn
 statsmodels
