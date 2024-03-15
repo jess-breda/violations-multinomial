@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 
 class ExpFilter:
-    def __init__(self, tau, column, verbose=True, len_factor=5):
+    def __init__(self, tau, verbose=True, len_factor=5):
         """
         An exponential filter that can be applied to a column
         of a dataframe. The filter is applied to each session
@@ -13,8 +13,6 @@ class ExpFilter:
         ------
         tau : int
             time constant for exponential decay
-        column : str
-            column to apply filter to
         verbose : bool, (default=True)
             whether to print out progress
         len_factor : int, (default=5)
@@ -22,7 +20,6 @@ class ExpFilter:
             allows for full decay of kernel
         """
         self.tau = tau
-        self.column = column
         self.verbose = verbose
         self.len_factor = len_factor
 
@@ -48,7 +45,7 @@ class ExpFilter:
         plt.xlabel("Trial")
         plt.show()
 
-    def apply_filter_to_session(self, session_df):
+    def apply_filter_to_session(self, column_name, session_df):
         """
         Apply kernel to individual sessions for independent
         filtering of column history. This is done by convolving
@@ -57,6 +54,8 @@ class ExpFilter:
 
         params
         ------
+        column_name : str
+            name of column in session_df to apply filter to
         session_df : pd.DataFrame
             dataframe containing data for a single session
 
@@ -69,22 +68,26 @@ class ExpFilter:
         kernel = self.create_kernel()
 
         # Convolve the kernel with selected column
-        convolution_result = np.convolve(session_df[self.column], kernel, mode="full")[
+        convolution_result = np.convolve(session_df[column_name], kernel, mode="full")[
             : len(session_df)
         ]
 
-        session_df[f"{self.column}_exp"] = convolution_result
+        session_df[f"{column_name}_exp"] = convolution_result
 
         return session_df
 
-    def apply_filter_to_dataframe(self, source_df, output_df=None):
+    def apply_filter_to_dataframe(self, column_name, source_df, output_df=None):
         """
-        Apply filter to all sessions in a dataframe. This is done
-        by applying the filter to each session individually and then
-        scaling across all sessions
+        Apply filter to all sessions in a data frame for a given
+        column name. This is done by applying the filter to each
+        session individually with apply_filter_to_session() and then
+        max scaling across all sessions
 
         params
         ------
+        column_name : str
+            column to apply filter to in source_df to create
+            column_name_exp in output_df
         source_df : pd.DataFrame
             dataframe containing data for all sessions and column
             to filter
@@ -98,8 +101,8 @@ class ExpFilter:
             dataframe with new column containing filtered
             column of interest indicated by column_exp_tau
         """
-        if not self.column in source_df.columns:
-            raise ValueError(f"{self.column} column not found in X!")
+        if not column_name in source_df.columns:
+            raise ValueError(f"{column_name} column not found in X!")
 
         if self.tau == 0:
             return
@@ -108,17 +111,19 @@ class ExpFilter:
             output_df = source_df.copy()
 
         for session_id, session_data in source_df.groupby("session"):
-            filtered_session = self.apply_filter_to_session(session_data.copy())
-            output_df.loc[output_df["session"] == session_id, f"{self.column}_exp"] = (
-                filtered_session[f"{self.column}_exp"]
+            filtered_session = self.apply_filter_to_session(
+                column_name, session_data.copy()
+            )
+            output_df.loc[output_df["session"] == session_id, f"{column_name}_exp"] = (
+                filtered_session[f"{column_name}_exp"]
             )
 
             if self.verbose:
                 print(
-                    f"Exp filter added for session {session_id} | Column: {self.column}, Tau: {self.tau}"
+                    f"Exp filter added for session {session_id} | Column: {column_name}, Tau: {self.tau}"
                 )
 
         # scale column by max to bound between 0 and 1
-        output_df[f"{self.column}_exp"] /= output_df[f"{self.column}_exp"].max()
+        output_df[f"{column_name}_exp"] /= output_df[f"{column_name}_exp"].max()
 
         return output_df

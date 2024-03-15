@@ -320,8 +320,9 @@ def exp_filter_column(col: Series, sessions: Series, tau: float) -> Series:
     by session basis with a given tau
     """
 
-    filtered_df = ExpFilter(
-        tau=tau, column=col.name, verbose=False
-    ).apply_filter_to_dataframe(pd.DataFrame({f"{col.name}": col, "session": sessions}))
+    df = pd.DataFrame({f"{col.name}": col, "session": sessions})
+    filtered_df = ExpFilter(tau=tau, verbose=False).apply_filter_to_dataframe(
+        column_name=col.name, source_df=df
+    )
 
     return filtered_df[f"{col.name}_exp"]
