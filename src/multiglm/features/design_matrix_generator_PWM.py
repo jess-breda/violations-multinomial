@@ -13,7 +13,7 @@ from multiglm.features.design_matrix_generator import *
 class DesignMatrixGeneratorPWM(DesignMatrixGenerator):
     def __init__(self, df, config, verbose=False):
         super().__init__(df, config, verbose)
-        self.X["choice"] = df.choice  # FOR DEBUG INIT
+        # self.X["choice"] = df.choice  # FOR DEBUG INIT
         self.run_init_tests()
 
     def run_init_tests(self):
@@ -110,6 +110,20 @@ def filtered_prev_viol(df, tau):
     filtered_prev_viol = exp_filter_column(prev_viol, df.session, tau)
 
     return filtered_prev_viol
+
+
+def get_animals_tau(df, var_name):
+
+    taus_df = pd.read_csv(
+        "/Users/jessbreda/Desktop/github/animal-learning/data/processed/tau_sweeps/taus_df.csv"
+    )
+
+    # design matrix generator checks tests for single animal requirement in df
+    animal_id = df.animal_id.iloc[0]
+
+    tau = taus_df.query("animal_id == @animal_id")[f"{var_name}_tau"].values[0]
+
+    return tau
 
 
 # binary and multi label maps?
