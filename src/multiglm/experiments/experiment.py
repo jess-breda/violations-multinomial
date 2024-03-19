@@ -70,6 +70,7 @@ class Experiment:
         shared_cols = [
             "animal_id",
             "model_name",
+            "model_type",
             "nll",
             "train_nll",
             "sigma",

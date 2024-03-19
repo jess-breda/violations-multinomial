@@ -1,5 +1,3 @@
-import pathlib
-import sys
 import pandas as pd
 from multiglm.experiments.experiment import Experiment
 
@@ -13,26 +11,9 @@ class ExperimentCompareModels(Experiment):
 
     def __init__(self, params):
         super().__init__(params)
-        self.null_mode = params["null_mode"]
-        self.null_models = []
-        vars = [
-            "animal_id",
-            "model_name",
-            "model_type",
-            "nll",
-            "train_nll",
-            "sigma",
-            "features",
-            "weights",
-            "n_train_trials",
-            "n_test_trials",
-        ]
-        if params["tau_columns"]:
-            tau_columns = [f"{col_name}_tau" for col_name in params["tau_columns"]]
-            self.fit_models = pd.DataFrame(columns=vars + tau_columns)
-        else:
-            self.fit_models = pd.DataFrame(columns=vars)
-        self.eval_train = params.get("eval_train", False)
+
+        self.null_mode = params["null_mode"]  # binary or multi
+        self.null_models = []  # init space for null model (bits/trial)
 
     def run(self):
         """
@@ -56,13 +37,9 @@ class ExperimentCompareModels(Experiment):
 
         # Fit and evaluate models, sigmas
         for model_name, config in self.model_config.items():
-            # filter params are unique to each model name
-            filter_params = super().create_filter_params(animal_id, model_name)
 
             # Generate design matrix & split
-            X, Y = super().generate_design_matrix_for_animal(
-                animal_df, filter_params, model_name
-            )
+            X, Y = super().generate_design_matrix_for_animal(animal_df, model_name)
 
             # if lr_only, then test set is just L/R trials and cost is computed only
             # on these trials
@@ -87,7 +64,7 @@ class ExperimentCompareModels(Experiment):
                 data = {
                     "animal_id": animal_id,
                     "model_name": model_name,
-                    "model_type": config["model_type"],
+                    "model_type": super().get_model_type(config["model_class"]),
                     "nll": test_nll,
                     "train_nll": train_nll,
                     "sigma": sigma,
@@ -95,6 +72,5 @@ class ExperimentCompareModels(Experiment):
                     "weights": W_fit,
                     "n_train_trials": len(X_train),
                     "n_test_trials": len(X_test),
-                    **{f"{key}_tau": value for key, value in filter_params.items()},
                 }
                 super().store(data, self.fit_models)
