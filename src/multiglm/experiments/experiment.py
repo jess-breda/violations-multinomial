@@ -59,9 +59,6 @@ class Experiment:
         # init fit model data frame
         self.init_fit_model_df(params)
 
-        # init space for null model
-        self.null_models = []
-
     def init_fit_model_df(self, params):
         """
         TODO- there should be a way to automate this such
@@ -89,6 +86,30 @@ class Experiment:
         else:
             col = []
         self.fit_models = pd.DataFrame(columns=shared_cols + col)
+
+    def unpack_config_for_single_model(self):
+        # only one model being tested here so we assume the name is the
+        # first key in the model_config dict
+        model_name = next(iter(self.model_config.keys()))
+        self.model_name = model_name
+
+        self.model_type = self.get_model_type(
+            self.model_config[model_name]["model_class"]
+        )
+
+    def get_model_type(self, model_type):
+        """
+        Quick helper for converting to a type to interpretable
+        str type is either MultiClassLogisticRegression or
+        BinaryLogisticRegression
+        """
+
+        if "multi" in str(model_type):
+            return "multi"
+        elif "binary" in str(model_type):
+            return "binary"
+        else:
+            return "unknown!"
 
     def load_dataset(self):
         """

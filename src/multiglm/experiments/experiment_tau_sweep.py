@@ -20,10 +20,7 @@ class ExperimentTauSweep(Experiment):
     def __init__(self, params):
         params["tau_sweep"] = True
         super().__init__(params)
-
-        # only one model being tested here so we assume the name is the
-        # first key in the model_config dict
-        self.model_name = next(iter(self.model_config.keys()))
+        super().unpack_config_for_single_model()  # gets model name and type
 
         # get params for the tau sweep for documentation purposes
         self.get_tau_sweep_params(params)
@@ -99,6 +96,7 @@ class ExperimentTauSweep(Experiment):
                 data = {
                     "animal_id": animal_id,
                     "model_name": self.model_name,
+                    "model_type": self.model_type,
                     "nll": test_nll,
                     "train_nll": train_nll,
                     "sigma": sigma,

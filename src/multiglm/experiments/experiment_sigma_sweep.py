@@ -18,10 +18,7 @@ class ExperimentSigmaSweep(Experiment):
 
     def __init__(self, params):
         super().__init__(params)
-
-        # only one model being tested here so we assume the
-        # model_name is the first key in the model_config dict
-        self.model_name = next(iter(self.model_config.keys()))
+        super().unpack_config_for_single_model()  # gets model name and type
 
     def run(self):
         for animal_id in self.animals:
@@ -58,6 +55,7 @@ class ExperimentSigmaSweep(Experiment):
             data = {
                 "animal_id": animal_id,
                 "model_name": self.model_name,
+                "model_type": self.model_type,
                 "nll": test_nll,
                 "train_nll": train_nll,
                 "sigma": sigma,
