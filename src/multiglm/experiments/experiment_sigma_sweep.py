@@ -18,28 +18,10 @@ class ExperimentSigmaSweep(Experiment):
 
     def __init__(self, params):
         super().__init__(params)
-        vars = [
-            "animal_id",
-            "model_name",
-            "nll",
-            "train_nll",
-            "sigma",
-            "features",
-            "weights",
-            "n_train_trials",
-            "n_test_trials",
-        ]
 
-        # only one model being tested here so we assume the name is the
-        # first key in the model_config dict
+        # only one model being tested here so we assume the
+        # model_name is the first key in the model_config dict
         self.model_name = next(iter(self.model_config.keys()))
-
-        if params["tau_columns"] is not None:
-            tau_columns = [f"{col_name}_tau" for col_name in params["tau_columns"]]
-        else:
-            tau_columns = []
-        self.fit_models = pd.DataFrame(columns=vars + tau_columns)
-        self.eval_train = params.get("eval_train", False)
 
     def run(self):
         for animal_id in self.animals:
@@ -53,8 +35,7 @@ class ExperimentSigmaSweep(Experiment):
         Run an experiment given a fixed design matrix for
         a single animal that sweeps over sigmas
         """
-        # get filter params (if any) & build design matrix
-        # filter_params = super().create_filter_params(animal_id, self.model_name)
+        # build design matrix- using model_names' dmg_config
         X, Y = super().generate_design_matrix_for_animal(animal_df, self.model_name)
 
         # train test split
@@ -84,6 +65,5 @@ class ExperimentSigmaSweep(Experiment):
                 "weights": W_fit,
                 "n_train_trials": len(X_train),
                 "n_test_trials": len(X_test),
-                # **{f"{key}_tau": value for key, value in filter_params.items()},
             }
             super().store(data, self.fit_models)

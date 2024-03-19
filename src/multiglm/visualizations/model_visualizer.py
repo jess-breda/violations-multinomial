@@ -59,13 +59,15 @@ class ModelVisualizer:
             col_name = "train_nll"
 
         if group == "animal_id":
-            best_idx = self.fit_models.groupby("animal_id")[col_name].idxmin()
+            best_idx = self.fit_models.groupby("animal_id", observed=False)[
+                col_name
+            ].idxmin()
             return self.fit_models.loc[best_idx].copy().reset_index(drop=True)
 
         else:
             best_fit_dfs = []
-            for _, sub_df in self.fit_models.groupby(["animal_id"]):
-                best_idx = sub_df.groupby(group)[col_name].idxmin()
+            for _, sub_df in self.fit_models.groupby(["animal_id"], observed=False):
+                best_idx = sub_df.groupby(group, observed=True)[col_name].idxmin()
                 best_fit_df = sub_df.loc[best_idx.dropna()]
                 best_fit_dfs.append(best_fit_df)
             return pd.concat(best_fit_dfs, ignore_index=True)
@@ -408,7 +410,6 @@ class ModelVisualizerTauSweep(ModelVisualizer):
 
     def __init__(self, experiment):
         super().__init__(experiment)
-        self.sweep_column = f"{experiment.sweep_column}_tau"
 
     ## TAUS
     def plot_nll_over_taus_by_animal(self, group="tau", df=None, **kwargs):
@@ -431,7 +432,6 @@ class ModelVisualizerTauSweep(ModelVisualizer):
 
         if df is None:
             assert group == "tau", "function specialized for tau grouping!"
-            group = self.sweep_column
             df = self.find_best_fit(group=group)
 
         n_animals = df.animal_id.nunique()
@@ -439,18 +439,22 @@ class ModelVisualizerTauSweep(ModelVisualizer):
             n_animals, 1, figsize=(15, 5 * n_animals), sharex=False, sharey=False
         )
 
-        df["is_min"] = df.groupby("animal_id")["nll"].transform(lambda x: x == x.min())
+        df["is_min"] = df.groupby("animal_id", observed=False)["nll"].transform(
+            lambda x: x == x.min()
+        )
 
         if n_animals == 1:
             ax = [ax]
 
-        for idx, (animal_id, sub_df) in enumerate(df.groupby("animal_id")):
+        for idx, (animal_id, sub_df) in enumerate(
+            df.groupby("animal_id", observed=False)
+        ):
             plt.xticks(rotation=90)
 
             current_ax = ax[idx] if n_animals > 1 else ax[0]
 
             sns.lineplot(
-                x=self.sweep_column,
+                x="tau",
                 y="nll",
                 data=sub_df,
                 ax=current_ax,
@@ -459,7 +463,7 @@ class ModelVisualizerTauSweep(ModelVisualizer):
             )
 
             current_ax.axvline(
-                sub_df[sub_df.is_min][self.sweep_column].values,
+                sub_df[sub_df.is_min]["tau"].values,
                 color="red",
                 linestyle="--",
                 label="Min",
@@ -499,7 +503,7 @@ class ModelVisualizerTauSweep(ModelVisualizer):
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 5))
 
-        sns.countplot(data=df, x=self.sweep_column, color="gray", ax=ax)
+        sns.countplot(data=df, x="tau", color="gray", ax=ax)
         _ = ax.set(xlabel="Best Tau", ylabel="Number of animals")
 
         return None
@@ -524,7 +528,7 @@ class ModelVisualizerTauSweep(ModelVisualizer):
         sns.pointplot(
             data=df,
             x="animal_id",
-            y=self.sweep_column,
+            y="tau",
             ax=ax,
             join=False,
             hue="animal_id",
@@ -572,7 +576,7 @@ class ModelVisualizerTauSweep(ModelVisualizer):
         sns.histplot(data=df, x=column, ax=ax, color="gray", **kwargs)
 
         if title is None:
-            ax.set_title(f"Best Fit {column} $\\tau$) ")
+            ax.set_title(f"Best Fit {column} $\\tau$ ")
 
         ax.set_xlabel("$\\tau$")
 

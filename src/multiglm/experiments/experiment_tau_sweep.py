@@ -18,62 +18,39 @@ class ExperimentTauSweep(Experiment):
     """
 
     def __init__(self, params):
+        params["tau_sweep"] = True
         super().__init__(params)
-
-        # tau_sweep is a dict with the keys for all column(s)
-        # that are being filtered. the values are either T/F
-        # with the single true indicating which column is the sweep experiment
-        self.tau_sweep = params["tau_sweep"]
-        tau_columns = [f"{key}_tau" for key in self.tau_sweep.keys()]
-        self.sweep_column = next(key for key, value in self.tau_sweep.items() if value)
-        self.taus = params["taus"]  # actual values to sweep over
-
-        vars = [
-            "animal_id",
-            "model_name",
-            "model_type",
-            "nll",
-            "train_nll",
-            "sigma",
-            "features",
-            "weights",
-            "n_train_trials",
-            "n_test_trials",
-        ]
-        tau_columns = [f"{key}_tau" for key in self.tau_sweep.keys()]
-        self.fit_models = pd.DataFrame(columns=vars + tau_columns)
-        self.eval_train = params.get("eval_train", False)
 
         # only one model being tested here so we assume the name is the
         # first key in the model_config dict
         self.model_name = next(iter(self.model_config.keys()))
 
-    def create_filter_params(self, animal_id):
+        # get params for the tau sweep for documentation purposes
+        self.get_tau_sweep_params(params)
+
+    def get_tau_sweep_params(self, params):
         """
-        Create filter params dict for a given animal given the
-        tau_sweep dict. This will create a dict with the
-        column names, taus (looked up from tau_df) for any variable
-        that is in tau_sweep with a value of False
-
-        !! NOTE- this child method overrides the parent method
-        !! this is because tau sweeps have unique filter params format
-        !! where some columns are being swept and others already have
-        !! a tau value
+        Helper function to unpack nested params dict specific
+        to the tau_sweep subdict of the dmg config dict
         """
+        self.tau_params = params["model_config"][f"{self.model_name}"]["dmg_config"][
+            "tau_sweep"
+        ]
 
-        filter_params = {}
+        self.taus = self.tau_params["taus"]
 
-        # Iterate over each item in the tau_sweep dictionary
-        for key, value in self.tau_sweep.items():
-            # If the value is false, it is not being swept and we
-            # need to look it up in the tau_df
-            if not value:
-                # Query the self.taus with the condition and extract the value
-                filter_params[key] = self.taus_df.query("animal_id == @animal_id")[
-                    f"{key}_tau"
-                ].values[0]
+        self.tau_sweep_column = self.tau_params["col_name"]
 
-        return filter_params
+    def iterate_sweep_idx(self, idx):
+        """
+        function to manually iterate the dmg_config tau sweep
+
+        note- this update is also tracked by self.tau_params but cannot be implemented
+        in self.tau_param
+        """
+        self.params["model_config"][f"{self.model_name}"]["dmg_config"]["tau_sweep"][
+            "current_idx"
+        ] = idx
 
     def run(self):
         """
@@ -82,27 +59,26 @@ class ExperimentTauSweep(Experiment):
         for animal_id in self.animals:
             animal_df = self.df.query("animal_id == @animal_id")
 
-            # get the exp filter params for the animal, columns
-            filter_params = self.create_filter_params(animal_id)
+            # # get the exp filter params for the animal, columns
+            # filter_params = self.create_filter_params(animal_id)
 
             print(
-                f"\n >>>> evaluating animal {animal_id} sweeping taus of {self.sweep_column} <<<<"
+                f"\n >>>> evaluating animal {animal_id} sweeping taus of {self.taus} <<<<"
             )
 
-            self.run_single_animal(animal_id, animal_df, filter_params)
+            self.run_single_animal(animal_id, animal_df)
 
-    def run_single_animal(self, animal_id, animal_df, filter_params):
+    def run_single_animal(self, animal_id, animal_df):
         tts = super().get_animal_train_test_sessions(animal_df)
 
         # Iterate over taus, create DMs, split, iterate over sigmas, fit
-        for tau in self.taus:
-            # Update the filter params with the tau & use this for
-            # design matrix generation
-            filter_params[self.sweep_column] = tau
+        for idx, tau in enumerate(self.taus):
 
-            X, Y = super().generate_design_matrix_for_animal(
-                animal_df, filter_params, self.model_name
-            )
+            # updates dmg_config["tau_sweep"]["current_index"] on compile for proper
+            # design matrix generation over various taus
+            self.iterate_sweep_idx(idx)
+
+            X, Y = super().generate_design_matrix_for_animal(animal_df, self.model_name)
 
             X_train, X_test, Y_train, Y_test = tts.apply_session_split(X, Y)
 
@@ -123,7 +99,6 @@ class ExperimentTauSweep(Experiment):
                 data = {
                     "animal_id": animal_id,
                     "model_name": self.model_name,
-                    "model_type": self.model_config[self.model_name]["model_type"],
                     "nll": test_nll,
                     "train_nll": train_nll,
                     "sigma": sigma,
@@ -131,6 +106,6 @@ class ExperimentTauSweep(Experiment):
                     "weights": W_fit,
                     "n_train_trials": len(X_train),
                     "n_test_trials": len(X_test),
-                    **{f"{key}_tau": value for key, value in filter_params.items()},
+                    "tau": tau,
                 }
                 super().store(data, self.fit_models)

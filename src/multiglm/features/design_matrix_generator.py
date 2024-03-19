@@ -47,7 +47,6 @@ class DesignMatrixGenerator:
             for key, value in self.config.items():
                 if key == "labels":
                     self.config_labels = value
-
                 else:
                     self.config_data[key] = value
 
@@ -65,9 +64,55 @@ class DesignMatrixGenerator:
 
         for key, func in self.config_data.items():
 
-            self.X[key] = func(self.df)
+            # tau sweep has special sub-dictionary
+            if key == "tau_sweep":
+                self.X[func["col_name"]] = self.implement_tau_sweep(func)
+            else:
+                self.X[key] = func(self.df)
 
         return self.X
+
+    def implement_tau_sweep(self, sweep_params: dict) -> Series:
+        """
+        Function to create a filtered column given a
+        tau sweep. A tau sweep is when one is trying
+        to find the best tau for a filtered column value,
+        thereby creating a new design matrix for each
+        iteration during model fitting.
+
+        !NOTE! Assumes that ExperimentTauSweep is
+        !iterating current_idx during compile
+
+        params
+        ------
+        sweep_params : dict
+            taus : list
+                list of taus to be implemented during sweep
+            current_idx : int
+                current idx of list in taus that is used to
+                get the current tau. Iterated by
+                ExperimentTauSweep() outer loop
+            col_func : lambda function
+                function used to create column that will be
+                filtered given the current tau
+            col_name : str
+                name of column in design matrix, only used in
+                create_data_matrix()
+            }
+        """
+
+        # create column to filter
+        func = sweep_params["col_func"]
+        col_to_filter = func(self.df)
+
+        # implement filter
+        current_idx = sweep_params["current_idx"]
+        current_tau = sweep_params["taus"][current_idx]
+
+        # print(f"\n\n\n !!!!!!implementing tau sweep with {current_tau}\n\n\n")
+        filtered_col = exp_filter_column(col_to_filter, self.df.session, current_tau)
+
+        return filtered_col
 
     def create_labels(self):
         """
@@ -320,6 +365,8 @@ def exp_filter_column(col: Series, sessions: Series, tau: float) -> Series:
     by session basis with a given tau
     """
 
+    if col.name is None:
+        col.name = "unnamed_col"
     df = pd.DataFrame({f"{col.name}": col, "session": sessions})
     filtered_df = ExpFilter(tau=tau, verbose=False).apply_filter_to_dataframe(
         column_name=col.name, source_df=df

@@ -22,6 +22,7 @@ Edited by Jess Breda 2024-02-06 for flexible data loading
 
 import gzip
 import pickle
+import pandas as pd
 
 from multiglm.utils.fitting_utils import get_taus_df
 from multiglm.utils.train_test_splitter import TrainTestSplitter
@@ -45,17 +46,49 @@ class Experiment:
         self.df = self.load_dataset()
         self.taus_df = get_taus_df()
 
-        # set up train/test
+        # set up train/test and eval
         self.random_state = params.get("random_state", 47)
         self.test_size = params.get("test_size", 0.2)
+        self.eval_train = params.get("eval_train", False)
 
         # set up model config (a large-sub dictionary of params)
         # see src/experiment/init_params.py for an example
         self.model_config = params["model_config"]
         self.sigmas = params["sigmas"]
 
+        # init fit model data frame
+        self.init_fit_model_df(params)
+
         # init space for null model
         self.null_models = []
+
+    def init_fit_model_df(self, params):
+        """
+        TODO- there should be a way to automate this such
+        that given DMG params, tau columns can be inferred.
+        However, this is any easy fix for now.
+        """
+
+        # columns present in all Experiment types
+        shared_cols = [
+            "animal_id",
+            "model_name",
+            "nll",
+            "train_nll",
+            "sigma",
+            "features",
+            "weights",
+            "n_train_trials",
+            "n_test_trials",
+        ]
+
+        # need to add an extra column to document tau when sweeping
+        tau_col = params.get("tau_sweep", False)
+        if tau_col:
+            col = ["tau"]
+        else:
+            col = []
+        self.fit_models = pd.DataFrame(columns=shared_cols + col)
 
     def load_dataset(self):
         """
@@ -267,6 +300,8 @@ class Experiment:
         """
         Function to save the experiment object as a pickle file
         """
+
+        # TODO temp remove the df from the experiment
 
         if compress:
             with gzip.open(file_path + file_name + ".gz", "wb") as f:
