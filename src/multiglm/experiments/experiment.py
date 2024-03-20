@@ -21,7 +21,7 @@ Edited by Jess Breda 2024-02-06 for flexible data loading
 """
 
 import gzip
-import pickle
+import dill as pickle
 import pandas as pd
 
 from multiglm.utils.fitting_utils import get_taus_df
@@ -98,7 +98,8 @@ class Experiment:
             self.model_config[model_name]["model_class"]
         )
 
-    def get_model_type(self, model_type):
+    @staticmethod
+    def get_model_type(model_type):
         """
         Quick helper for converting to a type to interpretable
         str type is either MultiClassLogisticRegression or
@@ -322,16 +323,24 @@ class Experiment:
         """
         Function to save the experiment object as a pickle file
         """
+        # Temporarily remove the df from the experiment since it's large
+        # and doesn't need to be saved out
+        temp_df = None
+        if hasattr(self, "df"):
+            temp_df = getattr(self, "df")
+            delattr(self, "df")
 
-        # TODO temp remove the df from the experiment
-
-        if compress:
-            with gzip.open(file_path + file_name + ".gz", "wb") as f:
-                pickle.dump(self, f)
-
-        else:
-            with open(file_path + file_name, "wb") as f:
-                pickle.dump(self, f)
+        try:
+            if compress:
+                with gzip.open(file_path + file_name + ".gz", "wb") as f:
+                    pickle.dump(self, f)
+            else:
+                with open(file_path + file_name, "wb") as f:
+                    pickle.dump(self, f)
+        finally:
+            # Ensure the df is added back to the object, even if saving fails
+            if temp_df is not None:
+                setattr(self, "df", temp_df)
 
 
 def load_experiment(

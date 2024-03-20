@@ -5,6 +5,7 @@ numpy
 scipy
 pandas
 seaborn
+dill
 matplotlib
 matplotlib-venn
 jupyterlab
