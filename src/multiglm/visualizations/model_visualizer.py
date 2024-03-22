@@ -149,6 +149,22 @@ class ModelVisualizer:
 
         return temp_df
 
+    def get_feature_and_class_weight_df(self, feature_name, weight_class):
+        """
+        Helper function to make a df for a given feature, class
+        for example, filt_prev_violation and V class
+        """
+
+        feature_class_weight_df = (
+            self.unpack_features_and_weights(self.find_best_fit(group="animal_id"))
+            .query('feature == "@feature_name" and weight_class == @weight_class')[
+                ["animal_id", "sigma", "feature", "weight", "tau"]
+            ]
+            .reset_index()
+        )
+
+        return feature_class_weight_df
+
     # PLOTS
 
     ## SIGMAS
@@ -411,6 +427,29 @@ class ModelVisualizerTauSweep(ModelVisualizer):
     def __init__(self, experiment):
         super().__init__(experiment)
 
+    ## HELPER
+
+    def save_best_fit_tau(
+        self,
+        var_name,
+        save_path="/Users/jessbreda/Desktop/github/animal-learning/data/processed/tau_sweeps/taus_df.csv",
+    ):
+
+        tau_df = self.find_best_fit(group="animal_id")[["animal_id", "tau"]]
+
+        tau_df.rename(columns={"tau": f"{var_name}_tau"}, inplace=True)
+
+        # check if file exists
+        try:
+            tau_df_old = pd.read_csv(save_path)
+            tau_df = pd.merge(tau_df_old, tau_df, on="animal_id")
+        except FileNotFoundError:
+            pass
+
+        tau_df.to_csv("../data/processed/tau_sweeps/taus_df.csv", index=False)
+
+        print(f"Saved {var_name} taus to taus_df.csv")
+
     ## TAUS
     def plot_nll_over_taus_by_animal(self, group="tau", df=None, **kwargs):
         """
@@ -581,6 +620,21 @@ class ModelVisualizerTauSweep(ModelVisualizer):
         ax.set_xlabel("$\\tau$")
 
         return None
+
+    def plot_weight_by_tau(self, feature, weight_class, ax=None, **kwargs):
+
+        weight_df = self.get_feature_and_class_weight_df(feature, weight_class)
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+        sns.scatterplot(data=weight_df, x="tau", y="weight", ax=ax, **kwargs)
+
+        ax.set(
+            xlabel="$\\tau$",
+            ylabel="Prev Viol Exp \nGLM Weight",
+        )
+
+        ax.legend(bbox_to_anchor=(1.05, 1), loc="upper left", title="Animal ID")
 
 
 class ModelVisualizerCompare(ModelVisualizer):
