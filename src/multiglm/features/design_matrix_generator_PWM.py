@@ -98,6 +98,17 @@ def prev_violation(df):
     return prev_violation.astype(int)
 
 
+def prev_trial_not_started(df):
+    """
+    Function to create a previous trial not started
+    Mapping:
+        trial not started (>0) -> 1
+        started (0) -> 0
+    """
+
+    return binarize(df.n_prev_trial_not_started, comparison=operator.gt, value=0)
+
+
 def filtered_prev_viol(df, tau):
     """
     Function to create a filtered previous violation feature
