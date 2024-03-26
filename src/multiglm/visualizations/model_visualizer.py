@@ -112,20 +112,26 @@ class ModelVisualizer:
     def unpack_row(self, row):
         """
         Unpacks the "feature" and "weight" columns of a row
-        to crete a long-form dataframe where each row corresponds
-        to a animal_id, feature. Note this function is flexible
-        to the number of classes
+        to create a long-form dataframe where each row corresponds
+        to an animal_id, feature. Note this function is flexible
+        to the number of classes.
 
-        params
-        ------
+        Parameters
+        ----------
         row : pd.Series
             A row of a pandas DataFrame with "feature" and "weight"
             columns as arrays.
         """
+        weights = row["weights"]
 
-        n_classes = row["weights"].shape[1]
+        # Check if weights are a 1D array (vector) and adjust accordingly
+        if weights.ndim == 1:
+            # For a 1D array, treat it as having a single class
+            n_classes = 1
+        else:
+            # For a 2D array, use it as is
+            n_classes = weights.shape[1]
 
-        tau_cols = row.filter(like="tau").index.to_list()
         temp_df = pd.DataFrame(
             {
                 "animal_id": row["animal_id"],
@@ -136,16 +142,18 @@ class ModelVisualizer:
             }
         )
 
-        for tau_col in tau_cols:
-            temp_df[tau_col] = row[tau_col]
-
         if n_classes == 3:
             class_names = ["L", "R", "V"]
+        elif n_classes == 1:
+            class_names = ["R-L"]
         else:
             class_names = [f"weight_class_{i+1}" for i in range(n_classes)]
 
         for i in range(n_classes):
-            temp_df[class_names[i]] = row["weights"][:, i]
+            # Adjust the indexing for both 1D and 2D arrays
+            temp_df[class_names[i]] = (
+                weights[:, i] if n_classes > 1 else weights.flatten()
+            )
 
         return temp_df
 

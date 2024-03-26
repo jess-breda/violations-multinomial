@@ -106,10 +106,10 @@ class Experiment:
         BinaryLogisticRegression
         """
 
-        if "multi" in str(model_type):
-            return "multi"
-        elif "binary" in str(model_type):
+        if "binary" in str(model_type):
             return "binary"
+        elif "multiclass" in str(model_type):
+            return "multi"
         else:
             return "unknown!"
 
