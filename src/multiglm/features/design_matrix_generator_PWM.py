@@ -123,6 +123,22 @@ def filtered_prev_viol(df, tau):
     return filtered_prev_viol
 
 
+def stim_filt_viol_intrx(df, stim_name, tau):
+    """
+    Function to create an interaction feature between a
+    stimulus term ("s_a", or "s_b") and a filtered previous
+    violation term.
+    """
+
+    filt_viol_col = filtered_prev_viol(df, tau)
+
+    stim_col = standardize(df[stim_name])
+
+    intrx_col = combine_two_cols(stim_col, filt_viol_col, operator.mul)
+
+    return intrx_col
+
+
 def get_animals_tau(df, var_name):
 
     taus_df = pd.read_csv(
@@ -137,5 +153,21 @@ def get_animals_tau(df, var_name):
     return tau
 
 
-# binary and multi label maps?
-# interaction terms
+def multi_choice_labels():
+    """
+    quick function to return labels dictionary that
+    maps choice values to multi values such that
+    L (0) : 0, R (1) : 1, and Viol (2) : 2.
+    """
+    return {"column_name": "choice", "mapping": {0: 0, 1: 1, 2: 2}}
+
+
+def binary_choice_labels():
+    """
+    quick function to return labels dictionary that
+    maps choice values to binary values such that
+    L (0) : 0, R (1) : 1, and Viol (2) : np.nan.
+    DesignMatrixGenerator drops nan rows by default.
+    """
+
+    return {"column_name": "choice", "mapping": {0: 0, 1: 1, 2: np.nan}}
