@@ -123,6 +123,26 @@ def filtered_prev_viol(df, tau):
     return filtered_prev_viol
 
 
+def filtered_prev_disengaged(df, tau, binarize_pre_filt):
+    """
+    Function to create a filtered previous disengaged feature which
+    is the summation of the prev trial not started and prev violation
+    binary regressors. This can then be filtered with overlap (ie max of)
+    2 or a binarized to 0 and 1 (ie no indication of overlap)
+    """
+
+    combined_cols = combine_two_cols(
+        prev_trial_not_started(df), prev_violation(df), operator.add
+    )
+
+    if binarize_pre_filt:
+        combined_cols = binarize(combine_two_cols, operator.gt, 0)
+
+    filt_prev_disengaged = exp_filter_column(combined_cols, df.session, tau)
+
+    return filt_prev_disengaged
+
+
 def stim_filt_viol_intrx(df, stim_name, tau):
     """
     Function to create an interaction feature between a
