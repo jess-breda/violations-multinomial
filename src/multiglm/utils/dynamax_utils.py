@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 
 
 def plot_transition_matrix(
@@ -81,6 +82,136 @@ def plot_binary_emission_weights(
         pass
     else:
         ax.legend().remove()
+
+    return None
+
+
+def plot_ll_over_iters(log_posterior_probs, log_prior, ax=None, **kwargs):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 4))
+
+    # remove prior from log probs (posteriror) to get model liklihood
+    log_likelihoods = log_posterior_probs - log_prior
+    ax.plot(log_likelihoods, label="Fit", **kwargs)
+
+    ax.legend()
+    _ = ax.set(xlabel="EM Iteration", ylabel="Log Likelihood")
+
+
+def plot_ll_over_iters_recovery(
+    log_posterior_probs, log_prior, true_ll, ax=None, **kwargs
+):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 4))
+
+    plot_ll_over_iters(log_posterior_probs, log_prior, ax=ax, **kwargs)
+
+    ax.axhline(true_ll, color="black", linestyle="--", label="True")
+    ax.legend()
+    _ = ax.set(xlabel="EM Iteration", ylabel="Log Likelihood")
+
+
+def plot_ll_recovery(lls, model_names, colors=None, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 4))
+
+    if colors is None:
+        colors = sns.color_palette("rocket", n_colors=len(lls))
+
+    for ll, label, color in zip(lls, model_names, colors):
+        ax.plot(ll, label=label, color=color)
+
+    ax.bar(
+        x=model_names,
+        height=lls,
+        color=colors,
+    )
+    ax.set_ylabel("Log Likelihood")
+
+    return None
+
+
+def plot_state_posterior_recovery(posterior, true_states, ax=None):
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(12, 4))
+
+    plot_state_posterior(posterior, ax=ax)
+
+    num_states = posterior.smoothed_probs.shape[1]
+    plot_state_shading(num_states, true_states, ax=ax)
+
+    return None
+
+
+def plot_state_shading(
+    num_states, states, ax=None, sample_window=(0, 150), title="States Over Time"
+):
+
+    num_timesteps = len(states)
+    cmap = sns.color_palette("husl", num_states)
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(12, 4))
+
+    # Adding shading for true states
+    current_state = states[0]
+    start_index = 0
+    for i in range(1, num_timesteps + 1):
+        if states[i] != current_state:
+            ax.axvspan(start_index, i, color=cmap[current_state], alpha=0.3)
+            current_state = true_states[i]
+            start_index = i
+    # Ensure the last segment is shaded
+    ax.axvspan(start_index, num_timesteps, color=cmap[current_state], alpha=0.3)
+
+    _ = ax.set(
+        xlabel="Samples",
+        title=title,
+        xlim=sample_window,
+    )
+
+    # Legend
+    ax.legend(loc="upper left")  # Create the initial legend from the line plots
+
+    state_patches = []
+    for i in range(num_states):
+        state_patches.append(Patch(color=cmap[i], alpha=0.3, label=f"State {i}"))
+
+    _ = ax.legend(
+        handles=state_patches + ax.legend_.legend_handles,
+        bbox_to_anchor=(1.0, 1),
+        loc="upper left",
+    )
+
+    return None
+
+
+def plot_state_posterior(posterior, ax=None, sample_window=(0, 150), **kwargs):
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(12, 4))
+
+    num_timesteps = posterior.smoothed_probs.shape[0]
+    num_states = posterior.smoothed_probs.shape[1]
+    cmap = sns.color_palette("husl", num_states)
+
+    for i in range(num_states):
+        ax.plot(
+            posterior.smoothed_probs[:, i], color=cmap[i], label=f"State {i}", **kwargs
+        )
+
+    _ = ax.set(
+        xlabel="Samples",
+        ylabel="P(state)",
+        title="Smoothed Posterior Probabilities",
+        xlim=sample_window,
+    )
+
+    _ = ax.legend(
+        bbox_to_anchor=(1.0, 1),
+        loc="upper left",
+    )
 
     return None
 
