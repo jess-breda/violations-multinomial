@@ -160,7 +160,7 @@ def plot_state_shading(
     for i in range(1, num_timesteps + 1):
         if states[i] != current_state:
             ax.axvspan(start_index, i, color=cmap[current_state], alpha=0.3)
-            current_state = true_states[i]
+            current_state = states[i]
             start_index = i
     # Ensure the last segment is shaded
     ax.axvspan(start_index, num_timesteps, color=cmap[current_state], alpha=0.3)
