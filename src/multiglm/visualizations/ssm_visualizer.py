@@ -164,6 +164,69 @@ def plot_bernoulli_weights_by_state(
     return None
 
 
+def plot_specified_class_weights_by_state(
+    weights: np.ndarray,
+    feature_names: List[str],
+    class_idx: int,
+    ax: Optional[plt.Axes] = None,
+    palette: Optional[str] = "husl",
+    title: Optional[str] = None,
+    **kwargs,
+) -> None:
+    """
+    Plots the state-dependent weights of a binary GLM.
+
+    Parameters
+    ----------
+    weights : np.ndarray
+        The array containing the weights.
+        Shape should be (num_states, num_classes, num_features).
+    feature_names : List[str]
+        List of feature names corresponding to the features in the weights array.
+    class_idx : int
+        Index of the class to plot weights for.
+    palette : str, optional (default="husl")
+        Color palette to use for the plot.
+    title : str, optional (default="Bernoulli Weights")
+        Title of the plot.
+    **kwargs : dict
+        Additional keyword arguments for the plot function.
+
+    Returns
+    -------
+    None
+    """
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(6, 5))
+
+    num_states, num_classes, num_features = weights.shape
+    sns.set_palette(sns.color_palette(palette, num_states))
+
+    ax.axhline(y=0, color="k")
+
+    for state in range(num_states):
+        ax.plot(
+            feature_names,
+            weights[state, class_idx, :],
+            marker="o",
+            label=f"State {state}",
+            **kwargs,
+        )
+
+    # aesthetics
+    ax.set(
+        xlabel="Feature",
+        ylabel="Weight",
+        title=title if title else f"Class {class_idx} Weights",
+    )
+    ax.legend()
+    ax.set_xticks(np.arange(len(feature_names)))
+    ax.set_xticklabels(feature_names, rotation=45)
+
+    return None
+
+
 ## LL by iterations
 def plot_log_likelihood_over_iters(
     fit_ll: List[float],
