@@ -7,6 +7,7 @@ import pandas as pd
 from pandas import Series
 import numpy as np
 from multiglm.features.design_matrix_generator import *
+from typing import List, Tuple
 
 
 ## CLASS
@@ -191,3 +192,96 @@ def binary_choice_labels():
     """
 
     return {"column_name": "choice", "mapping": {0: 0, 1: 1, 2: np.nan}}
+
+
+### SSM Helper Functions
+def prepare_data_for_ssm(
+    X: pd.DataFrame, y: np.ndarray[int]
+) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    """
+    Prepare jagged lists of feature arrays and label arrays for model fitting.
+
+    Parameters
+    ----------
+    X : (n_trials, n_features + 1), where +1 is the "session" column.
+        The input DataFrame containing trial data.
+        It must have a column named "session".
+        Each row represents a trial with associated features.
+    y : (n_trials,)
+        The input array containing labels for each trial.
+
+    Returns:
+    -------
+    Tuple :  A tuple containing two jagged lists:
+        - jagged_X_list: (n_trials_in_session, n_features)
+            A list of arrays where each array corresponds to a session.
+        - jagged_y_list: (n_trials_in_session,)
+            A list of arrays where each array corresponds to a session.
+        The number of trials per session can vary.
+    """
+    jagged_X_list = prepare_X_for_ssm(X)
+    jagged_y_list = prepare_y_for_ssm(X, y)
+
+    return jagged_X_list, jagged_y_list
+
+
+def prepare_X_for_ssm(df: pd.DataFrame) -> List[np.ndarray]:
+    """
+    Prepare a jagged list of arrays from the DataFrame for model fitting.
+
+    Parameters:
+    df : (n_trials, n_features + 2), where +1 is the "session" column
+        The input DataFrame containing trial data.
+        It must have a column named "session".
+        Each row represents a trial with associated features.
+
+    Returns:
+    jagged_X_list: (n_sessions, (n_trials_in_session, n_features))
+        A jagged list of arrays where each array corresponds to a session.
+        The number of trials per session can vary.
+    """
+    assert "session" in df.columns, "The DataFrame must have a column named 'session'."
+
+    # Infer feature columns
+    feature_cols = [col for col in df.columns if col != "session"]
+
+    # Group by the session column
+    grouped = df.groupby("session")
+
+    # Create the jagged array
+    jagged_X_list = [group[feature_cols].to_numpy() for _, group in grouped]
+
+    return jagged_X_list
+
+
+def prepare_y_for_ssm(df: pd.DataFrame, y: np.ndarray) -> List[np.ndarray]:
+    """
+    Prepare a jagged list of label arrays from the DataFrame and label array.
+
+    Parameters:
+    df : (n_trials, n_features + 1), where +1 is the "session" column
+        The input DataFrame containing trial data, where the
+        session column is used for grouping.
+
+    y : (n_trials,)
+        The input array containing labels for each trial.
+
+    Returns:
+    jagged_y_list : (n_sessions, (n_trials_in_session, ))
+        A jagged list of label arrays where each array corresponds to a session.
+        The number of trials per session can vary.
+    """
+    # Tests
+    if len(y) != len(df):
+        raise ValueError(
+            "The length of the label array y must match the number of rows in the DataFrame"
+        )
+    assert "session" in df.columns, "The DataFrame must have a column named 'session'."
+
+    # Group by the session column
+    grouped = df.reset_index().groupby("session")
+
+    # Create the jagged list of labels
+    jagged_y_list = [y[group.index] for _, group in grouped]
+
+    return jagged_y_list
