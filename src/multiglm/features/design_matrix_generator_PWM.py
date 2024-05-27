@@ -215,12 +215,15 @@ def prepare_data_for_ssm(
     Tuple :  A tuple containing two jagged lists:
         - jagged_X_list: (n_trials_in_session, n_features)
             A list of arrays where each array corresponds to a session.
-        - jagged_y_list: (n_trials_in_session,)
+        - jagged_y_list: (n_trials_in_session, 1)
             A list of arrays where each array corresponds to a session.
+            The second dimension 1 is necessary for the SSM model.1
         The number of trials per session can vary.
     """
     jagged_X_list = prepare_X_for_ssm(X)
     jagged_y_list = prepare_y_for_ssm(X, y)
+
+    print(f"SSM Preprocessing: {len(jagged_X_list)} sessions found.")
 
     return jagged_X_list, jagged_y_list
 
@@ -267,7 +270,7 @@ def prepare_y_for_ssm(df: pd.DataFrame, y: np.ndarray) -> List[np.ndarray]:
         The input array containing labels for each trial.
 
     Returns:
-    jagged_y_list : (n_sessions, (n_trials_in_session, ))
+    jagged_y_list : (n_sessions, (n_trials_in_session, 1 ))
         A jagged list of label arrays where each array corresponds to a session.
         The number of trials per session can vary.
     """
@@ -282,6 +285,6 @@ def prepare_y_for_ssm(df: pd.DataFrame, y: np.ndarray) -> List[np.ndarray]:
     grouped = df.reset_index().groupby("session")
 
     # Create the jagged list of labels
-    jagged_y_list = [y[group.index] for _, group in grouped]
+    jagged_y_list = [y[group.index].reshape(-1, 1) for _, group in grouped]
 
     return jagged_y_list
