@@ -58,6 +58,7 @@ def plot_state_posterior(
     posterior: np.ndarray,
     ax: Optional[plt.Axes] = None,
     sample_window: Tuple[int, int] = (0, None),
+    title=None,
     **kwargs,
 ) -> None:
     """
@@ -93,9 +94,9 @@ def plot_state_posterior(
         ax.plot(posterior[:, i], color=cmap[i], label=f"State {i}", **kwargs)
 
     ax.set(
-        xlabel="Samples",
+        xlabel="Trial",
         ylabel="P(state)",
-        title="Smoothed Posterior Probabilities",
+        title="Smoothed Posterior Probabilities" if title is None else title,
         xlim=sample_window,
     )
 
@@ -227,8 +228,8 @@ def plot_specified_class_weights_by_state(
     return None
 
 
-## LL by iterations
-def plot_log_likelihood_over_iters(
+## LP by iterations
+def plot_log_probs_over_iters(
     fit_ll: List[float],
     ax: Optional[plt.Axes] = None,
     title: Optional[str] = "LL by Iteration",
@@ -236,13 +237,13 @@ def plot_log_likelihood_over_iters(
     **kwargs,
 ) -> None:
     """
-    Plot log likelihood over iterations of EM algorithm
+    Plot log probs over iterations of EM algorithm
 
     Parameters
     ----------
 
     fit_ll : List[float]
-            List of log likelihood values over iterations of EM algorithm
+            List of log probability values over iterations of EM algorithm
             returned by ssm.hmm.fit()
     ax : matplotlib.axes.Axes, (default=None)
             The axis to plot to.
@@ -268,6 +269,47 @@ def plot_log_likelihood_over_iters(
     if true_ll is not None:
         ax.axhline(true_ll, color="black", linestyle="--", label="True LL")
         ax.legend()
+
+    return None
+
+
+# State Occupancy
+def plot_state_occupancies(
+    state_occupancies: np.ndarray,
+    ax: Optional[plt.Axes] = None,
+    title: str = None,
+    **kwargs,
+) -> None:
+    """
+    Plots the state occupancies as a bar chart.
+
+    Parameters
+    ----------
+    state_occupancies : np.ndarray (n_states,)
+        An array containing the occupancy fractions for each state.
+    ax : matplotlib.axes.Axes, optional (default=None)
+        The axis to plot on. If None, a new figure and axis are created.
+    title : str, optional (default=None)
+        The title of the plot. If None, "State Occupancies" is used.
+    **kwargs : dict
+        Additional keyword arguments for the sns.barplot function.
+
+    Returns
+    -------
+    None
+    """
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    x = [f"state_{i}" for i in range(len(state_occupancies))]
+    sns.barplot(x=x, y=state_occupancies, ax=ax, **kwargs)
+
+    ax.set(
+        ylim=(0, 1),
+        title=title if title else "State Occupancies",
+        xlabel=None,
+        ylabel="Frac Occupancy",
+    )
 
     return None
 
@@ -310,6 +352,46 @@ def get_posterior_state_probs(
             glmmhmm.expected_states(data=sesssion_choices, input=sesssion_inputs)[0]
         )
     return posterior_probs
+
+
+# Get state occupancy
+
+
+def get_state_occupancies(
+    glmmhmm: "ssm.HMM",
+    true_choices: Union[List[np.ndarray], List[List[np.ndarray]]],
+    inputs: Union[List[np.ndarray], List[List[np.ndarray]]],
+) -> np.ndarray:
+    """
+    Computes the state occupancies from the given GLM-HMM model.
+
+    Parameters
+    ----------
+    glmmhmm : ssm.HMM
+        The GLM-HMM object that has been fit.
+    true_choices : list of np.ndarray or list of list of np.ndarray
+        True choices (y) can be in the form of a list of arrays for each
+        session or a single concatenated array.
+    inputs : list of np.ndarray or list of list of np.ndarray
+        Inputs (X) can be in the form of a list of arrays for each
+        session or a single concatenated array.
+
+    Returns
+    -------
+    state_occupancies : np.ndarray (n_states,)
+        An array containing the occupancy fractions for each state.
+    """
+
+    posterior_state_probs = get_posterior_state_probs(glmmhmm, true_choices, inputs)
+
+    if len(posterior_state_probs[0]) > 1:  # remove session dimension if it exists
+        posterior_state_probs = np.concatenate(posterior_state_probs)
+
+    state_max_posterior = np.argmax(posterior_state_probs, axis=1)
+    _, state_occupancies = np.unique(state_max_posterior, return_counts=True)
+    state_occupancies = state_occupancies / np.sum(state_occupancies)
+
+    return state_occupancies
 
 
 # - get assigned state (state_max_posterior)
