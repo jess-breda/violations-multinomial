@@ -24,12 +24,12 @@ import gzip
 import dill as pickle
 import pandas as pd
 
-from multiglm.utils.fitting_utils import get_taus_df
-from multiglm.utils.train_test_splitter import TrainTestSplitter
-from multiglm.models.null_model import NullModel
-from multiglm.data.dataset_loader import DatasetLoader
-from multiglm.data import ANIMAL_IDS
-from multiglm.features.design_matrix_generator_PWM import DesignMatrixGeneratorPWM
+from violmulti.utils.fitting_utils import get_taus_df
+from violmulti.utils.train_test_splitter import TrainTestSplitter
+from violmulti.models.null_model import NullModel
+from violmulti.data.dataset_loader import DatasetLoader
+from violmulti.data import ANIMAL_IDS
+from violmulti.features.design_matrix_generator_PWM import DesignMatrixGeneratorPWM
 
 
 class Experiment:

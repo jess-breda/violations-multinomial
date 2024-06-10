@@ -6,7 +6,7 @@ specific to the PWM dataset.
 import pandas as pd
 from pandas import Series
 import numpy as np
-from multiglm.features.design_matrix_generator import *
+from violmulti.features.design_matrix_generator import *
 from typing import List, Tuple
 
 

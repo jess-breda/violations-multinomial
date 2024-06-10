@@ -8,7 +8,7 @@ import pandas as pd
 from pandas import Series
 import numpy as np
 import operator
-from multiglm.features.exp_filter import ExpFilter
+from violmulti.features.exp_filter import ExpFilter
 
 
 ## CLASS

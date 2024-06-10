@@ -1,9 +1,9 @@
-from multiglm.data.dataset_loader import DatasetLoader
-from multiglm.features.design_matrix_generator_PWM import (
+from violmulti.data.dataset_loader import DatasetLoader
+from violmulti.features.design_matrix_generator_PWM import (
     DesignMatrixGeneratorPWM,
     prepare_data_for_ssm,
 )
-from multiglm.visualizations.ssm_visualizer import *
+from violmulti.visualizations.ssm_visualizer import *
 import ssm
 import matplotlib.pyplot as plt
 

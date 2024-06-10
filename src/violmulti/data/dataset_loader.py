@@ -22,7 +22,7 @@ Written By Jess breda 2024-02-06
 """
 
 import pandas as pd
-from multiglm.data import ANIMAL_IDS
+from violmulti.data import ANIMAL_IDS
 
 
 class DatasetLoader:

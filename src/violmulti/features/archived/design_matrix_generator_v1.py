@@ -5,7 +5,7 @@ Written by Jess Breda, 2023-10-23
 
 import pandas as pd
 import numpy as np
-from multiglm.features.exp_filter import ExpFilter
+from violmulti.features.exp_filter import ExpFilter
 
 
 class DesignMatrixGenerator:

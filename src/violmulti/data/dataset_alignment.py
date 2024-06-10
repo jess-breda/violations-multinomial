@@ -27,8 +27,8 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from pathlib import Path
 
-from multiglm.utils.violation_iti import ViolationITI
-from multiglm.data.get_old_rat_data import (
+from violmulti.utils.violation_iti import ViolationITI
+from violmulti.data.get_old_rat_data import (
     get_full_rat_data,
     get_rat_viol_data,
 )  # old data
@@ -435,7 +435,6 @@ def make_mega_alignment_figure(
 
 
 class DatasetVisualizer:
-
     """
     Class for visualizing the alignment data from old and new datasets
     for a given animal. This class is meant to be used after the

@@ -7,7 +7,7 @@ Written by Jess Breda
 """
 
 import pandas as pd
-from multiglm.experiments.experiment import Experiment
+from violmulti.experiments.experiment import Experiment
 
 
 class ExperimentSigmaSweep(Experiment):
