@@ -61,6 +61,7 @@ class RunBinaryGLMHMM:
                 Xs,
                 ys,
                 animal_id,
+                self.feature_names,
                 seed=self.seed,
                 save_path=self.save_path,
             )
@@ -69,6 +70,7 @@ class RunBinaryGLMHMM:
     def generate_design_matrix(self, animal_df):
         dmg = DesignMatrixGeneratorPWM(animal_df, self.dmg_config, verbose=True)
         X, y = dmg.create()  # N total trials long
+        self.feature_names = [col for col in X.columns if col != "session"]
         self.Xs, self.ys = prepare_data_for_ssm(X, y)  # Jagged arrays N sessions long
 
         return self.Xs, self.ys
@@ -100,7 +102,9 @@ class RunBinaryGLMHMM:
         return log_probs, glmhmm
 
     @staticmethod
-    def visualize(log_probs, model, Xs, ys, animal_id, seed=0, save_path=None):
+    def visualize(
+        log_probs, model, Xs, ys, animal_id, feature_names, seed=0, save_path=None
+    ):
         layout = """
             ABBB
             CDDD
@@ -119,7 +123,7 @@ class RunBinaryGLMHMM:
 
         weights = model.observations.params
         plot_bernoulli_weights_by_state(
-            weights, ax=ax_dict["C"], feature_names=["s_a", "s_b", "bias"]
+            weights, ax=ax_dict["C"], feature_names=feature_names
         )
         plot_log_probs_over_iters(log_probs, ax=ax_dict["E"], color="black")
 
