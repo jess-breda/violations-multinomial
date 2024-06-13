@@ -1,0 +1,13 @@
+{
+    "animal_ids": ["W078"],
+    "relative_data_path": "/Users/jessbreda/Desktop/github/violations-multinomial/data",
+    "data_type": "new_trained",
+    "dmg_config": {
+        "s_a": "standardize",
+        "s_b": "standardize",
+        "bias": "add_bias_column",
+        "prev_avg_stim": {"function": "prev_avg_stim", "args": {"mask_prev_violation": true}},
+        "session": "copy",
+        "labels": "binary_choice_labels"
+    }
+}

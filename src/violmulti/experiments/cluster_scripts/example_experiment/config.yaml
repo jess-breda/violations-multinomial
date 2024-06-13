@@ -1,0 +1,11 @@
+animal_ids : ["W078"]
+relative_data_path : "/Users/jessbreda/Desktop/github/violations-multinomial/data"
+data_type : "new_trained"
+dmg_config:
+  s_a_stand: "lambda df: standardize(df.s_a)"
+  s_b_stand: "lambda df: standardize(df.s_b)"
+  stim_avg_stand: "lambda df: standardize(combine_two_cols(df.s_a, df.s_b, operation='mean'))"
+  prev_correct: "lambda df: shift_n_trials_up(df.correct_side, df.session, shift_size=1)"
+  labels: "binary_choice_labels()"
+
+
