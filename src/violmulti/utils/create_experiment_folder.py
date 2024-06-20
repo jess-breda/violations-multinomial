@@ -42,9 +42,9 @@ def experiment_path_manager() -> Path:
         subfolders. The "results" subfolder is where experiment directories will be created.
     """
     cwd = Path.cwd()
-    # spock path starts with usr/people/jbreda
+    # spock path starts with /mnt
     # local path stats with /Users/jessbreda
-    if cwd.parts[0] == "usr":
+    if cwd.parts[1] == "mnt":
         on_spock = True
     else:
         on_spock = False
