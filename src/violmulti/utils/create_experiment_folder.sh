@@ -15,12 +15,25 @@ change_dir=false
 # Prepare arguments for the Python script
 python_args=()
 for arg in "$@"; do
-    if [ "$arg" = "--cd" ]; then
-        change_dir=true
-    else
-        python_args+=("$arg")
-    fi
+    case "$arg" in
+        --cd)
+            change_dir=true
+            ;;
+        --on_spock)
+            on_spock=true
+            ;;
+        *)
+            python_args+=("$arg")
+            ;;
+    esac
 done
+
+# Load module and activate environment if --on_spock flag is present
+if [ "$on_spock" = true ]; then
+    module load anacondapy/2024.02
+    conda activate viol-multi
+    echo "Anaconda loaded and viol-multi environment activated"
+fi
 
 # Run the Python script without the --cd argument and capture the new directory path
 NEW_DIR=$(python create_experiment_folder.py "${python_args[@]}")
