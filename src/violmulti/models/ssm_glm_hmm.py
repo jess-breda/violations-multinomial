@@ -3,6 +3,7 @@ import logging
 import pickle
 from pathlib import Path
 import numpy as np
+from typing import Union, List
 
 
 # TODO
@@ -27,19 +28,13 @@ class SSMGLMHMM(ssm.HMM):
     def __init__(
         self,
         model_config: dict,
-        model_name: str = "glmhmm",
-        n_fold: int = 1,
-        results_path=None,
     ):
 
         self.model_config = model_config
         self.unpack_model_config()
         self.set_up_priors()
 
-        self.n_fold = n_fold
-        self.model_name = model_name
-        self.results_path = results_path
-
+        # Initialize model given model_config"
         super().__init__(
             K=self.K,
             D=1,  # never have more than 1 output dimension
@@ -73,6 +68,12 @@ class SSMGLMHMM(ssm.HMM):
         logging.info(f"Unpacked model config: {self.model_config}")
 
     def set_up_priors(self):
+        """
+        Helper method to set up the transition and observation prior
+        kwargs for SSM. This is necessary because the SSM library
+        requires the prior to be passed in as a dictionary and it does
+        not like empty values.
+        """
         # Set up the kwargs for the model- can't pass in 0 values and
         # have them be ignored, so need to do this manually
         if self.transitions == "sticky":
@@ -91,6 +92,7 @@ class SSMGLMHMM(ssm.HMM):
 
     def initialize_weights(self):
         """
+        #TODO
         Initialize the weights of the model. Placeholder for actual implementation.
         """
         np.random.seed(self.seed)
@@ -98,11 +100,32 @@ class SSMGLMHMM(ssm.HMM):
 
     def initialize_transitions(self):
         """
+        #TODO
         Initialize the transitions of the model. Placeholder for actual implementation.
         """
         # Initialize transitions logic here
 
-    def fit(self, X, y):
+    def fit(self, X: List[np.ndarray], y: List[np.ndarray]) -> np.ndarray:
+        """
+        Fit GLM-HMM model using EM algorithm and model_config parameters.
+        See DsignedMatrixGeneratorPWM prepare_data_for_ssm for assumed
+        input format. Note- n_sessions can be 1 or more!
+
+        Parameters
+        ----------
+        X : (n_sessions, (n_trials_in_session, n_features))
+            A jagged list of arrays where each array corresponds to a session.
+            The number of trials per session can vary.
+        y : (n_sessions, (n_trials_in_session, 1 ))
+            A jagged list of label arrays where each array corresponds to a session.
+            The number of trials per session can vary.
+
+        Returns
+        -------
+        np.ndarray : The log probabilities/posterior :
+            (prior(theta) + likelihood(states, choices |theta))
+            of the entire model (states, parameters) at each iteration of the EM algorithm.
+        """
         self.X = X
         self.y = y
 
@@ -114,6 +137,8 @@ class SSMGLMHMM(ssm.HMM):
             num_iters=self.n_iters,
             tolerance=self.tolerance,
         )
+
+        self.compute_stats_of_interest()
 
         return self.log_probs
 
@@ -140,23 +165,3 @@ class SSMGLMHMM(ssm.HMM):
                 self.expected_states(data=sesssion_choices, input=sesssion_inputs)[0]
             )
         return posterior_probs
-
-    def save(self):
-
-        self.compute_stats_of_interest()
-
-        if self.results_path is None:
-            self.results_path = Path.cwd() / "model_results"
-
-            if not self.results_path.exists():
-                self.results_path.mkdir()
-        else:
-            self.results_path = Path(self.results_path)
-            self.results_path.mkdir(
-                parents=True, exist_ok=True
-            )  # Ensure the directory exists
-
-        with open(
-            f"{self.results_path}/{self.model_name}_model_fold_{self.n_fold}.pkl", "wb"
-        ) as f:
-            pickle.dump(self, f)
