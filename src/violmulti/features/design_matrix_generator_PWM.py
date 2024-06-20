@@ -203,7 +203,7 @@ def prepare_data_for_ssm(
 
     Parameters
     ----------
-    X : (n_trials, n_features + 1), where +1 is the "session" column.
+    X : (n_trials, m_features + 1), where +1 is the "session" column.
         The input DataFrame containing trial data.
         It must have a column named "session".
         Each row represents a trial with associated features.
@@ -213,7 +213,7 @@ def prepare_data_for_ssm(
     Returns:
     -------
     Tuple :  A tuple containing two jagged lists:
-        - jagged_X_list: (n_trials_in_session, n_features)
+        - jagged_X_list: (n_trials_in_session, m_features)
             A list of arrays where each array corresponds to a session.
         - jagged_y_list: (n_trials_in_session, 1)
             A list of arrays where each array corresponds to a session.
@@ -233,13 +233,13 @@ def prepare_X_for_ssm(df: pd.DataFrame) -> List[np.ndarray]:
     Prepare a jagged list of arrays from the DataFrame for model fitting.
 
     Parameters:
-    df : (n_trials, n_features + 2), where +1 is the "session" column
+    df : (n_trials, m_features + 2), where +2 is the "session" and "bias" columns
         The input DataFrame containing trial data.
         It must have a column named "session".
         Each row represents a trial with associated features.
 
     Returns:
-    jagged_X_list: (n_sessions, (n_trials_in_session, n_features))
+    jagged_X_list: (n_sessions, (n_trials_in_session, m_features))
         A jagged list of arrays where each array corresponds to a session.
         The number of trials per session can vary.
     """
@@ -262,7 +262,7 @@ def prepare_y_for_ssm(df: pd.DataFrame, y: np.ndarray) -> List[np.ndarray]:
     Prepare a jagged list of label arrays from the DataFrame and label array.
 
     Parameters:
-    df : (n_trials, n_features + 1), where +1 is the "session" column
+    df : (n_trials, m_features + 2), where + 2 is the "session" and "bias" columns
         The input DataFrame containing trial data, where the
         session column is used for grouping.
 
