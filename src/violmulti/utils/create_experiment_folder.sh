@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# Check if the current working directory contains "usr"
+# because then we are on the cluster and need to activate things
+if [[ $PWD == *"/usr"* ]]; then
+    # Load Anaconda module and activate Conda environment
+    module load anacondapy/2024.02
+    conda activate viol-multi
+    echo "Anaconda loaded and viol-multi environment activated"
+fi
+
 # Example usage:
 # ./create_experiment_folder.sh experiment_name standard 
     # - will create a "experiment_name" folder with standard config running
@@ -15,17 +24,11 @@ change_dir=false
 # Prepare arguments for the Python script
 python_args=()
 for arg in "$@"; do
-    case "$arg" in
-        --cd)
-            change_dir=true
-            ;;
-        --on_spock)
-            on_spock=true
-            ;;
-        *)
-            python_args+=("$arg")
-            ;;
-    esac
+    if [ "$arg" = "--cd" ]; then
+        change_dir=true
+    else
+        python_args+=("$arg")
+    fi
 done
 
 # Load module and activate environment if --on_spock flag is present

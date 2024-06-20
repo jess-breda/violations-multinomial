@@ -7,11 +7,10 @@ import sys
 def create_experiment_directory(
     experiment_name: str,
     config_type: str,
-    on_spock: bool = False,
 ) -> str:
 
     # Create the experiment directory and subdirectories in data/results/experiment_name
-    data_path = experiment_path_manager(on_spock)
+    data_path = experiment_path_manager()
     experiment_dir = Path(data_path / "results" / f"experiment_{experiment_name}")
     subdirectories = ["models", "logs", "figures", "data"]
     for subdir in subdirectories:
@@ -31,7 +30,7 @@ def create_experiment_directory(
         print(f"Failed to write config file: {e}")
 
 
-def experiment_path_manager(on_spock: bool) -> Path:
+def experiment_path_manager() -> Path:
     """
     Quick function to determine the path for data loading and storage based on
     whether the code is being run on Spock (on the cluster) or locally.
@@ -42,6 +41,13 @@ def experiment_path_manager(on_spock: bool) -> Path:
         The base path for data storage containing the raw, cleaned, processed, and results
         subfolders. The "results" subfolder is where experiment directories will be created.
     """
+    cwd = Path.cwd()
+    # spock path starts with usr/people/jbreda
+    # local path stats with /Users/jessbreda
+    if cwd.parts[0] == "usr":
+        on_spock = True
+    else:
+        on_spock = False
 
     prefix = "/jukebox" if on_spock else "/Volumes"
     return Path(
@@ -73,16 +79,12 @@ def main():
     parser.add_argument(
         "config_type", type=str, help="Type of configuration for the experiment."
     )
-    parser.add_argument(
-        "--on_spock",
-        action="store_true",
-        help="Flag to set if running on Spock (cluster).",
-    )
     args = parser.parse_args()
 
     # Call the directory creation function
     exp_dir = create_experiment_directory(
-        args.experiment_name, args.config_type, args.on_spock
+        args.experiment_name,
+        args.config_type,
     )
     print(exp_dir)  # This will be captured by the shell script
     sys.stderr.write(f"Experiment {args.experiment_name} created at: {exp_dir}\n")
