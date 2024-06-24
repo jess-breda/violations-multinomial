@@ -13,6 +13,9 @@ and then filters based on animal_id or session number. It may
 be more efficient to implement this filtering on the csv during 
 load, rather than on the data frame after load.
 
+Better idea: load from compressed parquet files for faster loading
+and then once there is some downtime, add the filter option.
+
 Example usage:
 --------------
 loader = DatasetLoader(animal_ids = ["W078", "W079"], data_type="old_viols")
