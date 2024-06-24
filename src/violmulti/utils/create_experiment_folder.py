@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 import yaml
 import sys
+import violmulti.utils.save_load as save_load
 
 
 def create_experiment_directory(
@@ -10,49 +11,23 @@ def create_experiment_directory(
 ) -> str:
 
     # Create the experiment directory and subdirectories in data/results/experiment_name
-    data_path = experiment_path_manager()
-    experiment_dir = Path(data_path / "results" / f"experiment_{experiment_name}")
+    cup_data_path = save_load.determine_path_to_cup_data()
+    experiment_dir = Path(cup_data_path / "results" / f"experiment_{experiment_name}")
     subdirectories = ["models", "logs", "figures", "data"]
     for subdir in subdirectories:
         (experiment_dir / subdir).mkdir(parents=True, exist_ok=True)
 
     # Create config file
     config_data = get_init_config_data(config_type)
-    config_data["relative_data_path"] = str(data_path)
+    config_data["relative_data_path"] = str(cup_data_path)
     config_path = experiment_dir / "config.yaml"
 
     # Write the config file
     try:
-        with open(config_path, "w") as config_file:
-            yaml.safe_dump(config_data, config_file)
+        save_load.save_config_to_yaml(config_data, config_path)
         return str(experiment_dir)
     except IOError as e:
         print(f"Failed to write config file: {e}")
-
-
-def experiment_path_manager() -> Path:
-    """
-    Quick function to determine the path for data loading and storage based on
-    whether the code is being run on Spock (on the cluster) or locally.
-
-    Returns
-    -------
-    data_base_path : Path
-        The base path for data storage containing the raw, cleaned, processed, and results
-        subfolders. The "results" subfolder is where experiment directories will be created.
-    """
-    cwd = Path.cwd()
-    # spock path starts with /mnt
-    # local path stats with /Users/jessbreda
-    if cwd.parts[1] == "mnt":
-        on_spock = True
-    else:
-        on_spock = False
-
-    prefix = "/jukebox" if on_spock else "/Volumes"
-    return Path(
-        f"{prefix}/brody/jbreda/behavioral_analysis/violations_multinomial/data"
-    )
 
 
 def get_init_config_data(config_type: str):
@@ -64,9 +39,15 @@ def get_init_config_data(config_type: str):
             "_experiment_description": "string to enter here",
             "animal_ids": [None],
             "data_type": "new_trained",
-            "experiment_type": None,
+            "experiment_type": "mega_fit",  # could take from keys in runner class!
             "dmg_config": None,
-            "model_config": None,
+            "model_config": {
+                "n_inits": 1,
+                "n_iterations": 100,
+                "n_states": None,
+                "n_features": None,
+                "n_categories": None,  # add other things!
+            },
         }
     else:
         # Handle other types or raise an error

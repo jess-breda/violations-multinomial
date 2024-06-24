@@ -1,10 +1,23 @@
+"""
+Functions to save and load different experiment components
+such as models, data, and configuration files. Additional
+utility functions to create directories and determine paths
+to Cup storage locations
+
+Written by Jess Breda 2024-06-24
+"""
+
 from pathlib import Path
-from typing import Union, Tuple
+from typing import Union, Tuple, Dict, Any
 import pickle
+import yaml
 import pandas as pd
 import numpy as np
 
 from violmulti.models.ssm_glm_hmm import SSMGLMHMM
+from violmulti.features.design_matrix_generator_PWM import *  # for deserialize_function_or_call
+
+## == Model Utility Functions == ##
 
 
 def save_model_to_pickle(
@@ -12,6 +25,7 @@ def save_model_to_pickle(
     animal_id: str = "",
     model_name: str = "glmhmm",
     n_fold: int = 0,
+    n_init: int = 0,
     model_path=None,
 ) -> None:
     """
@@ -32,6 +46,8 @@ def save_model_to_pickle(
         on the same data).
     n_fold : int (default=0)
         The fold number of the model. Default is 0, assuming no cross-validation.
+    n_init : int (default=0)
+        The initialization number of the model (if multiple are used)
     model_path : str or Path object (default=None)
         The path to save the model object. Default is None, which saves the
         model object to a folder called "models" in the current working
@@ -43,7 +59,7 @@ def save_model_to_pickle(
     model_path = create_required_directory(model_path, "models")
 
     with open(
-        f"{model_path}/animal_{animal_id}_{model_object.K}_states_model_{model_name}_fold_{n_fold}.pkl",
+        f"{model_path}/animal_{animal_id}_{model_object.K}_states_model_{model_name}_fold_{n_fold}_init_{n_init}.pkl",
         "wb",
     ) as f:
         pickle.dump(model_object, f)
@@ -54,6 +70,7 @@ def load_model_from_pickle(
     n_states: int,
     model_name: str,
     n_fold: int,
+    n_init: int,
     model_path: Union[str, Path],
 ) -> SSMGLMHMM:
     """
@@ -74,6 +91,8 @@ def load_model_from_pickle(
         on the same data).
     n_fold : int
         The fold number of the model, (0 if no cross-validation was done)
+    n_init : int
+        The initialization number of the model (if multiple are used)
     model_path : str or Path object
         The path where the model is located.
 
@@ -84,12 +103,15 @@ def load_model_from_pickle(
     """
 
     with open(
-        f"{model_path}/animal_{animal_id}_{n_states}_states_model_{model_name}_fold_{n_fold}.pkl",
+        f"{model_path}/animal_{animal_id}_{n_states}_states_model_{model_name}_fold_{n_fold}_init_{n_init}.pkl",
         "rb",
     ) as f:
         model = pickle.load(f)
 
     return model
+
+
+## == Data Utility Functions == ##
 
 
 def save_data_and_labels_to_parquet(
@@ -204,7 +226,107 @@ def load_data_and_labels_from_parquet(
     return X, y
 
 
-def create_required_directory(path, folder_name):
+## == Config Utility Functions == ##
+
+
+def save_config_to_yaml(config: Dict[str, Any], file_path: str) -> None:
+    """
+    Saves an experiment configuration to a YAML file.
+
+    Parameters
+    ----------
+    config : dict
+        The configuration dictionary to save to a YAML file.
+    file_path : str
+        The path to the YAML file to save the configuration to.
+    """
+    with open(file_path, "w") as file:
+        yaml.safe_dump(config, file)
+
+
+def load_config_from_yaml(config_path: str) -> Dict[str, Any]:
+    """
+    Loads an experiment configuration from a YAML file.
+
+    Parameters
+    ----------
+    config_path : str
+        The path to the YAML file containing the configuration.
+
+    Returns
+    -------
+    config : dict
+        The configuration dictionary loaded from the YAML file.
+    """
+    with open(config_path, "r") as file:
+        config = yaml.safe_load(file)
+    return config
+
+
+def deserialize_function_or_call(func_str: str) -> Any:
+    """
+    Deserializes a string representing a lambda function
+    or a function call.
+
+    Parameters
+    ----------
+    func_str : str
+        The string representation of the lambda function
+        or function call.
+
+    Returns
+    -------
+    func : Any
+        The deserialized function or the result of the
+        function call.
+
+    Raises
+    ------
+    ValueError
+        If the function string format is unknown or if
+        there is a syntax error.
+
+    Examples
+    --------
+    deserialize_function_or_call("lambda df: standardize(df.s_a)") -> lambda df: standardize(df.s_a)
+    deserialize_function_or_call("binary_choice_labels()" -> binary_choice_labels()
+    """
+    try:
+        if "lambda" in func_str:
+            return eval(func_str)
+        elif "()" in func_str:  # Simple check to see if it's a function call
+            return eval(func_str)
+        else:
+            raise ValueError(f"Unknown function format: {func_str}")
+    except (SyntaxError, NameError) as e:
+        raise ValueError(f"Error evaluating function string: {func_str} - {e}")
+
+
+def convert_dmg_config_functions(config: Dict[str, str]) -> Dict[str, Any]:
+    """
+    Converts strings in the configuration to actual functions or the results
+    of function calls. This is specific to the DesignMatrixGenerator configuration
+    where the functions are serialized as strings that indicate the operations
+    needed to create each column of the Design Matrix and Labels.
+
+    Parameters
+    ----------
+    config : dict
+        The dmg configuration dictionary with string representations of functions.
+
+    Returns
+    -------
+    deserialized_config : dict
+        The dmg configuration dictionary with deserialized functions.
+    """
+    deserialized_config = {}
+    for key, func_str in config.items():
+        deserialized_config[key] = deserialize_function_or_call(func_str)
+    return deserialized_config
+
+
+## == General Utility Functions == ##
+def create_required_directory(path: Union[Path, str], folder_name: str) -> Path:
     """
     Check to see if path_to_check exists. If it does not, create the directory
     with the folder_name.
@@ -221,3 +343,33 @@ def create_required_directory(path, folder_name):
     print(f"Directory ensured at: {created_path}")
 
     return created_path
+
+
+def determine_path_to_cup_data() -> Path:
+    """
+    Quick function to determine the path for data loading and storage based on
+    whether the code is being run on Spock (on the cluster) or locally.
+
+    Returns
+    -------
+    data_base_path : Path
+        The base path for data storage containing the raw, cleaned, processed, and results
+        subfolders. The "results" subfolder is where experiment directories will be created.
+    """
+    cwd = Path.cwd()
+    # spock path starts with /mnt
+    # local path stats with /Users/jessbreda
+    # if cwd.parts[1] == "mnt":
+    #     on_spock = True
+    # else:
+    #     on_spock = False
+
+    if cwd.parts[1] == "Users":
+        on_spock = False
+    else:
+        on_spock = True
+
+    prefix = "/jukebox" if on_spock else "/Volumes"
+    return Path(
+        f"{prefix}/brody/jbreda/behavioral_analysis/violations_multinomial/data"
+    )
