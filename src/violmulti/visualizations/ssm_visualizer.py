@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Tuple, Optional, List, Union
 from ssm import *
+from violmulti.utils import save_load
 
 
 # Transition Matrix
@@ -396,3 +397,78 @@ def get_state_occupancies(
 
 # - get assigned state (state_max_posterior)
 # - get fractional state occupancy
+
+
+def plot_log_posteriors_by_inits(
+    log_probs: List[np.ndarray],
+    log_likelihoods: np.ndarray,
+    ylim=None,
+    ax=None,
+):
+
+    best_init = log_likelihoods.argmax()
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(10, 6))
+    for i, log_prob in enumerate(log_probs):
+        if i == best_init:
+            color = "red"
+            linewidth = 3
+        else:
+            color = "black"
+            linewidth = 1
+        ax.plot(log_prob, color=color, linewidth=linewidth)
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Log Probability")
+    ax.set_ylim(ylim)
+
+
+def visualize_v2(model, animal_id, feature_names, seed=0, save_path=None):
+    """
+    Cleaned up a bit from above- still not the best but better
+    """
+    layout = """
+            ABBB
+            CDDD
+            EFFF
+            GHHH
+        """
+
+    n_states = model.K
+
+    X = save_load.decompress_data(model.X)
+    y = save_load.decompress_data(model.y)
+
+    fig = plt.figure(constrained_layout=True, figsize=(23, 16))
+
+    ax_dict = fig.subplot_mosaic(layout)  # ax to plot to
+    plt.suptitle(f"{animal_id} GLM-HMM Summary Plot", fontweight="semibold")
+
+    plot_transition_matrix(model.transitions.params, ax=ax_dict["A"])
+
+    weights = model.observations.params
+    plot_bernoulli_weights_by_state(
+        weights, ax=ax_dict["C"], feature_names=feature_names
+    )
+    plot_log_probs_over_iters(model.log_probs, ax=ax_dict["E"], color="black")
+
+    state_occupancies = get_state_occupancies(model, y, X)
+    plot_state_occupancies(state_occupancies, ax=ax_dict["G"])
+
+    posterior_state_probs = get_posterior_state_probs(model, y, X)
+
+    # get 4 random sessions given between 0 and len(ys)
+    np.random.seed(seed)
+    random_sessions = np.random.choice(range(len(y)), 4)
+    plots = ["B", "D", "F", "H"]
+    for session, plot in zip(random_sessions, plots):
+        plot_state_posterior(
+            posterior_state_probs[session],
+            ax=ax_dict[plot],
+            title=f"Session {session}",
+        )
+
+    if save_path:
+        save_name = f"{animal_id}_BGLM_HMM_{n_states}_states_summary.png"
+        plt.savefig(save_path + "/" + save_name, bbox_inches="tight")
+        print(f"VIZ: Summary figure saved")
+        plt.close("all")
