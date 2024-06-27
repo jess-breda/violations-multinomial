@@ -19,7 +19,6 @@ def create_experiment_directory(
 
     # Create config file
     config_data = get_init_config_data(config_type)
-    config_data["relative_data_path"] = str(cup_data_path)
     config_path = experiment_dir / "config.yaml"
 
     # Write the config file
