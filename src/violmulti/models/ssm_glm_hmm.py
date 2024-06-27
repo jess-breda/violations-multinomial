@@ -64,7 +64,7 @@ class SSMGLMHMM(ssm.HMM):
         self.prior_kappa = self.model_config.get("prior_kappa", 0)
         self.masks = self.model_config.get("masks", None)
         self.tolerance = self.model_config.get("tolerance", 1e-4)
-        self.seed = self.model_config.get("seed", 0)
+        # self.seed = self.model_config.get("seed", 0)
         logging.info(f"Unpacked model config: {self.model_config}")
 
     def set_up_priors(self):
