@@ -13,6 +13,7 @@ import pickle
 import yaml
 import pandas as pd
 import numpy as np
+import zlib
 
 from violmulti.models.ssm_glm_hmm import SSMGLMHMM
 from violmulti.features.design_matrix_generator_PWM import *  # for deserialize_function_or_call
@@ -56,13 +57,31 @@ def save_model_to_pickle(
 
     # if no path is provided, save to a folder called "model_results"
     # in the current working directory, if path is provided, just convert to Path object
-    model_path = create_required_directory(model_path, "models")
+    model_base_path = create_required_directory(model_path, "models")
+    model_path = f"{model_base_path}/animal_{animal_id}_{model_object.K}_states_model_{model_name}_fold_{n_fold}_init_{n_init}.pkl"
+
+    model_object.X = compress_data(model_object.X)
+    model_object.y = compress_data(model_object.y)
 
     with open(
-        f"{model_path}/animal_{animal_id}_{model_object.K}_states_model_{model_name}_fold_{n_fold}_init_{n_init}.pkl",
+        model_path,
         "wb",
     ) as f:
         pickle.dump(model_object, f)
+
+    print(f"SaveLoad: Model saved to {model_path}")
+
+
+@staticmethod
+def compress_data(data):
+    serialized_data = pickle.dumps(data)
+    return zlib.compress(serialized_data)
+
+
+@staticmethod
+def decompress_data(compressed_data):
+    decompressed_data = zlib.decompress(compressed_data)
+    return pickle.loads(decompressed_data)
 
 
 def load_model_from_pickle(
@@ -109,6 +128,20 @@ def load_model_from_pickle(
         model = pickle.load(f)
 
     return model
+
+
+def load_multi_model_log_likelihoods(experiment_name):
+
+    experiment_dir = get_experiment_dir(experiment_name)
+
+    return np.load(experiment_dir / "models/log_likelihoods.npy", allow_pickle=True)
+
+
+def load_multi_model_log_posteriors(experiment_name):
+
+    experiment_dir = get_experiment_dir(experiment_name)
+
+    return np.load(experiment_dir / "models/log_posteriors.npy", allow_pickle=True)
 
 
 ## == Data Utility Functions == ##
@@ -220,8 +253,8 @@ def load_data_and_labels_from_parquet(
     labels_df = pd.read_parquet(labels_path, engine="pyarrow")
     y = labels_df["label"].to_numpy()
 
-    print(f"DataFrame loaded from {df_path}")
-    print(f"Labels loaded from {labels_path}")
+    print(f"SaveLoad: DataFrame loaded from {df_path}")
+    print(f"SaveLoad: Labels loaded from {labels_path}")
 
     return X, y
 
@@ -340,7 +373,7 @@ def create_required_directory(path: Union[Path, str], folder_name: str) -> Path:
         # Convert string path to Path object and create directory
         created_path = Path(path)
         created_path.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
-    print(f"Directory ensured at: {created_path}")
+    print(f"SaveLoad: Directory ensured at: {created_path}")
 
     return created_path
 
@@ -373,3 +406,16 @@ def determine_path_to_cup_data() -> Path:
     return Path(
         f"{prefix}/brody/jbreda/behavioral_analysis/violations_multinomial/data"
     )
+
+
+def get_experiment_dir(experiment_name) -> Path:
+    """
+    Determine the path to the experiment directory
+    on cup based on the experiment name provided.
+
+    storing pattern on Brody lab Cup:
+
+    jbreda/behavioral_analysis/violations_multinomial/results/experiment_{experiment_name}
+    """
+    cup_data_path = determine_path_to_cup_data()
+    return Path(cup_data_path / "results" / f"experiment_{experiment_name}")
