@@ -8,22 +8,30 @@ from pandas import Series
 import numpy as np
 from violmulti.features.design_matrix_generator import *
 from typing import List, Tuple
+import warnings
 
 
 ## CLASS
 class DesignMatrixGeneratorPWM(DesignMatrixGenerator):
-    def __init__(self, df, config, verbose=False):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        config: dict,
+        verbose: bool = False,
+    ):
         super().__init__(df, config, verbose)
-        # self.X["choice"] = df.choice  # FOR DEBUG INIT
-        self.run_init_tests()
+        if len(self.df["animal_id"].unique()) > 1:
+            print("DMG: Note more than 1 animal in dataframe!")
 
-    def run_init_tests(self):
+    def assert_single_animal(self):
+        """
+        Assert only one animal in data frame- and easy thing to miss
+        when creating design matrices since the column is dropped.
+        """
+        if len(self.df["animal_id"].unique()) == 1:
+            print("DMG: Note more than 1 animal in dataframe!")
 
-        assert (
-            len(self.df["animal_id"].unique()) == 1
-        ), "More than 1 animal in dataframe!"
-
-    def create(self):
+    def create(self) -> Tuple[pd.DataFrame, np.ndarray]:
         X, y = super().create()
 
         return X, y
@@ -195,7 +203,7 @@ def binary_choice_labels():
 
 
 ### SSM Helper Functions
-def prepare_data_for_ssm(
+def partition_data_by_session_for_EM(
     X: pd.DataFrame, y: np.ndarray[int]
 ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
     """
@@ -220,15 +228,15 @@ def prepare_data_for_ssm(
             The second dimension 1 is necessary for the SSM model.1
         The number of trials per session can vary.
     """
-    jagged_X_list = prepare_X_for_ssm(X)
-    jagged_y_list = prepare_y_for_ssm(X, y)
+    jagged_X_list = prepare_X_for_EM(X)
+    jagged_y_list = prepare_y_for_EM(X, y)
 
-    print(f"SSM Preprocessing: {len(jagged_X_list)} sessions found.")
+    print(f"DMG: {len(jagged_X_list)} sessions found and reshaped for EM.")
 
     return jagged_X_list, jagged_y_list
 
 
-def prepare_X_for_ssm(df: pd.DataFrame) -> List[np.ndarray]:
+def prepare_X_for_EM(df: pd.DataFrame) -> List[np.ndarray]:
     """
     Prepare a jagged list of arrays from the DataFrame for model fitting.
 
@@ -257,7 +265,7 @@ def prepare_X_for_ssm(df: pd.DataFrame) -> List[np.ndarray]:
     return jagged_X_list
 
 
-def prepare_y_for_ssm(df: pd.DataFrame, y: np.ndarray) -> List[np.ndarray]:
+def prepare_y_for_EM(df: pd.DataFrame, y: np.ndarray) -> List[np.ndarray]:
     """
     Prepare a jagged list of label arrays from the DataFrame and label array.
 
