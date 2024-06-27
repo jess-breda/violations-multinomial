@@ -6,15 +6,6 @@ This is intentionally written to be extendable- simply add a new
 data_type into determine_load_function and corresponding load_function
 to execute.
 
-Potential improvements:
------------------------
-Currently this loads the whole new dataset
-and then filters based on animal_id or session number. It may
-be more efficient to implement this filtering on the csv during 
-load, rather than on the data frame after load.
-
-Better idea: load from compressed parquet files for faster loading
-and then once there is some downtime, add the filter option.
 
 Example usage:
 --------------
@@ -29,14 +20,12 @@ from violmulti.data import ANIMAL_IDS
 
 
 class DatasetLoader:
-    def __init__(
-        self, animal_ids=None, data_type="new_trained", relative_data_path="../data"
-    ):
+    def __init__(self, animal_ids=None, data_type="new_trained", data_path="../data"):
         if animal_ids is None:
             animal_ids = ANIMAL_IDS  # load all the animals
         self.animal_ids = animal_ids
         self.data_type = data_type
-        self.relative_data_path = relative_data_path
+        self.data_path = data_path
         self.determine_load_function()
 
     def determine_load_function(self):
@@ -74,18 +63,20 @@ class DatasetLoader:
         return self.load_function
 
     def load_data(self):
-        print("Loading data for animal ids: ", self.animal_ids)
+        print("DataLoader: Loading data for animal ids: ", self.animal_ids)
         return self.load_function()
 
     def load_new_trained(self):
-        data = pd.read_csv(
-            self.relative_data_path + "/processed/all_animals_trained_threshold.csv"
+        # also exists at .csv but load is too slow from cup, eventually
+        # all data will be parqut, this is just the most commonly used.
+        data = pd.read_parquet(
+            self.data_path + "/processed/all_animals_trained_threshold.parquet"
         )
         data = data.query("animal_id in @self.animal_ids").copy()
         return data
 
     def load_new_all(self):
-        data = pd.read_csv(self.relative_data_path + "/cleaned/all_animals_cleaned.csv")
+        data = pd.read_csv(self.data_path + "/cleaned/all_animals_cleaned.csv")
         data = data.query("animal_id in @self.animal_ids").copy()
         return data
 
@@ -96,7 +87,7 @@ class DatasetLoader:
 
     def load_old_viols(self):
         data = pd.read_csv(
-            self.relative_data_path + "/cleaned/old_dataset/old_violation_data.csv"
+            self.data_path + "/cleaned/old_dataset/old_violation_data.csv"
         )
         data = data[data["animal_id"].isin(self.animal_ids)]
         return data
