@@ -39,11 +39,32 @@ def get_init_config_data(config_type: str):
             "_experiment_description": "string to enter here",
             "animal_ids": [None],
             "data_type": "new_trained",
-            "experiment_type": "mega_fit",  # could take from keys in runner class!
+            "experiment_type": "standard",  # could take from keys in runner class!
             "dmg_config": None,
             "model_config": {
                 "n_inits": 1,
-                "n_iterations": 100,
+                "n_iters": 100,
+                "n_states": None,
+                "n_features": None,
+                "n_categories": None,  # add other things!
+            },
+        }
+    elif config_type == "mega_fit":
+        return {
+            "_experiment_description": "string to enter here",
+            "animal_ids": None,  # all animals
+            "data_type": "new_trained",
+            "experiment_type": "mega_fit",  # could take from keys in runner class!
+            "dmg_config": {
+                "s_a_stand": "lambda df: standardize(df.s_a)",
+                "s_b_stand": "lambda df: standardize(df.s_b)",
+                "bias": "lambda df: (add_bias_column(df))",
+                "session": "lambda df: copy(df.animal_id_session)",  # special session column
+                "labels": "binary_choice_labels()",
+            },
+            "model_config": {
+                "n_inits": 20,
+                "n_iters": 100,
                 "n_states": None,
                 "n_features": None,
                 "n_categories": None,  # add other things!
