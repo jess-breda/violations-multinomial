@@ -203,12 +203,16 @@ class ModelVisualizer:
             n_animals, 1, figsize=(15, 5 * n_animals), sharex=True, sharey=False
         )
 
-        df["is_min"] = df.groupby("animal_id")["nll"].transform(lambda x: x == x.min())
+        df["is_min"] = df.groupby("animal_id", observed=True)["nll"].transform(
+            lambda x: x == x.min()
+        )
 
         if n_animals == 1:
             ax = [ax]
 
-        for idx, (animal_id, sub_df) in enumerate(df.groupby("animal_id")):
+        for idx, (animal_id, sub_df) in enumerate(
+            df.groupby("animal_id", observed=True),
+        ):
             plt.xticks(rotation=90)
 
             current_ax = ax[idx] if n_animals > 1 else ax[0]
@@ -285,14 +289,14 @@ class ModelVisualizer:
             fig, ax = plt.subplots(figsize=(8, 5))
 
         sns.pointplot(
-            data=df, x="animal_id", y="sigma", ax=ax, join=False, hue="animal_id"
+            data=df, x="animal_id", y="sigma", ax=ax, linestyle="none", hue="animal_id"
         )
 
         _ = ax.set_xticks(
             ax.get_xticks(), ax.get_xticklabels(), rotation=90, ha="right"
         )
         _ = ax.set(ylabel="Best sigma", xlabel="")
-        ax.get_legend().set_visible(False)
+        # ax.get_legend().remove()
 
         return None
 
@@ -318,7 +322,7 @@ class ModelVisualizer:
 
     ## WEIGHTS
     @staticmethod
-    def plot_weights(df, ax, title="", **kwargs):
+    def plot_weights(df, ax, plot_individuals=False, title="", **kwargs):
         """
         Workhorse function for plotting weights across features
         and classes.
@@ -338,8 +342,26 @@ class ModelVisualizer:
         """
 
         sns.barplot(
-            x="feature", y="weight", hue="weight_class", data=df, ax=ax, **kwargs
+            x="feature",
+            y="weight",
+            hue="weight_class",
+            data=df,
+            ax=ax,
+            fill=False,
+            **kwargs,
         )
+        if plot_individuals:
+            sns.stripplot(
+                x="feature",
+                y="weight",
+                hue="weight_class",
+                data=df,
+                ax=ax,
+                dodge=True,
+                alpha=0.5,
+                legend=False,
+                **kwargs,
+            )
         ax.axhline(y=0, color="black")
 
         _ = ax.set_xticks(
@@ -347,6 +369,7 @@ class ModelVisualizer:
         )
         _ = ax.set(xlabel="", ylabel="Weight", title=title)
 
+        sns.despine()
         return None
 
     def plot_weights_by_animal(self, df=None, model_name=None, **kwargs):
@@ -383,7 +406,13 @@ class ModelVisualizer:
             )
 
     def plot_weights_summary(
-        self, df=None, ax=None, animal_id=None, title="", **kwargs
+        self,
+        df=None,
+        ax=None,
+        plot_individuals=False,
+        animal_id=None,
+        title="",
+        **kwargs,
     ):
         """
         Wrapper around plot_weights to plot weights for all
@@ -421,7 +450,7 @@ class ModelVisualizer:
         if ax is None:
             fig, ax = plt.subplots(figsize=(12, 6))
 
-        self.plot_weights(df, ax, title=title, **kwargs)
+        self.plot_weights(df, ax, plot_individuals, title=title, **kwargs)
 
         return None
 
