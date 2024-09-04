@@ -171,7 +171,7 @@ def stim_filt_viol_intrx(df, stim_name, tau):
 def get_animals_tau(df, var_name):
 
     taus_df = pd.read_csv(
-        "/Users/jessbreda/Desktop/github/animal-learning/data/processed/tau_sweeps/taus_df.csv"
+        "/Users/jessbreda/Desktop/github/violations-multinomial/data/processed/tau_sweeps/taus_df.csv"
     )
 
     # design matrix generator checks tests for single animal requirement in df

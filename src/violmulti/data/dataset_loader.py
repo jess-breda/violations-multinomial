@@ -20,7 +20,12 @@ from violmulti.data import ANIMAL_IDS
 
 
 class DatasetLoader:
-    def __init__(self, animal_ids=None, data_type="new_trained", data_path="../data"):
+    def __init__(
+        self,
+        animal_ids=None,
+        data_type="new_trained",
+        data_path="/Users/jessbreda/Desktop/github/violations-multinomial/data",
+    ):
         if animal_ids is None:
             animal_ids = ANIMAL_IDS  # load all the animals
         self.animal_ids = animal_ids

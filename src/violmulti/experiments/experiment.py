@@ -317,7 +317,7 @@ class Experiment:
     def save(
         self,
         file_name,
-        file_path="/Users/jessbreda/Desktop/github/animal-learning/data/results/",
+        file_path="/Users/jessbreda/Desktop/github/violations-multinomial/data/results/",
         compress=True,
     ):
         """
@@ -345,7 +345,7 @@ class Experiment:
 
 def load_experiment(
     save_name,
-    save_path="/Users/jessbreda/Desktop/github/animal-learning/data/results/",
+    save_path="/Users/jessbreda/Desktop/github/violations-multinomial/data/results/",
     compressed=True,
 ):
     """
