@@ -1,0 +1,5 @@
+# VALID_PALETTE = ["#e1c63c", "#75b6df"]
+HIT_COLOR = "green"
+VIOLATION_COLOR = "#e1c63c"
+
+PYSCHOMETRIC_ANIMALS = ['W060', 'W066', 'W068', 'W073', 'W074', 'W075', 'W080', 'W081', 'W082', 'W083', 'W088', 'W089']
