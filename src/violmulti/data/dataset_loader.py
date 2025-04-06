@@ -92,7 +92,7 @@ class DatasetLoader:
 
     def load_old_viols(self):
         data = pd.read_csv(
-            self.data_path + "/cleaned/old_dataset/old_violation_data.csv"
+            self.data_path + "/cleaned/old_dataset/old_violation_data_copy.csv"
         )
-        data = data[data["animal_id"].isin(self.animal_ids)]
+        data = data.query("animal_id in @self.animal_ids").copy()
         return data

@@ -893,8 +893,9 @@ class PostAlignmentVisualizer:
     with only viol data and the new dataset without time outs.
     """
 
-    def __init__(self, animal_ids):
+    def __init__(self, animal_ids, alignment_df_path="../data/processed/dataset_alignment/"):
         self.animal_ids = animal_ids
+        self.alignment_df_path = alignment_df_path
         self.alignment_df = self.load_and_concat()
 
     def load_and_concat(self):
@@ -902,7 +903,7 @@ class PostAlignmentVisualizer:
         for animal_id in self.animal_ids:
             dfs.append(
                 pd.read_csv(
-                    f"../data/processed/dataset_alignment/{animal_id}_alignment_df.csv"
+                    f"{self.alignment_df_path}/{animal_id}_alignment_df.csv"
                 )
             )
         return pd.concat(dfs, axis=0, ignore_index=True)
@@ -963,5 +964,6 @@ class PostAlignmentVisualizer:
         title = title if title else f"{source_a} {column_name} delta"
         ax.set(
             title=title,
-            ylabel=f"$\Delta$ {source_a} - {source_b}",
+            ylabel=f"$\Delta$ New - Old",
+            xlabel="Animal ID",
         )
