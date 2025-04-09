@@ -3,6 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
+import math
 
 
 class ModelVisualizer:
@@ -407,10 +408,13 @@ class ModelVisualizer:
 
     def plot_weights_summary(
         self,
+        orientation="v",
         df=None,
         ax=None,
         plot_individuals=False,
+        plot_bias=False,
         animal_id=None,
+        seed=None,
         title="",
         **kwargs,
     ):
@@ -424,6 +428,12 @@ class ModelVisualizer:
             dataframe with columns "feature", "weight_class", "weight"
             row indexed by animal id, feature and weight class
             created by unpack_features_and_weights()
+        orientation : str (default="v")
+            orientation of the plot. "v" for vertical, "h" for horizontal
+        plot_individuals : bool (default=False)
+            if True, plot individual animal points
+        plot_bias : bool (default=False)
+            if True, plot bias features
         animal_id : str (default=None)
             animal id to plot weights for. if None, will plot
             weights for all animals
@@ -437,6 +447,9 @@ class ModelVisualizer:
         if df is None:
             df = self.unpack_features_and_weights()
 
+        if not plot_bias:
+            df = df.query("feature != 'bias'").copy()
+
         if animal_id is not None:
             df = df.query("animal_id == @animal_id")
             title = f"Animal {animal_id}"
@@ -447,12 +460,93 @@ class ModelVisualizer:
             else:
                 title = title
 
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(12, 6))
+        if seed is not None and plot_individuals:
+            np.random.seed(seed)
 
-        self.plot_weights(df, ax, plot_individuals, title=title, **kwargs)
+        if orientation == "vertical" or orientation == "v":
+            if ax is None:
+                fig, ax = plt.subplots(figsize=(12, 6))
+            self.plot_weights(df, ax, plot_individuals=plot_individuals,title=title, **kwargs)
+        elif orientation == "horizontal" or orientation == "h":
+            if ax is None:
+                fig, ax = plt.subplots(figsize=(6, 12))
+            self.plot_weights_horizontal(df, ax,
+             plot_individuals=plot_individuals,
+             title=title,
+             **kwargs)
+        else:
+            raise ValueError(f"Invalid orientation: {orientation}")
 
         return None
+    
+    @staticmethod
+    def plot_weights_horizontal(df, ax, plot_individuals=False, title="", **kwargs):
+        """
+        Plot weights across features and classes in a horizontal layout:
+        - feature names on the y-axis
+        - weight values on the x-axis
+        - optionally plot individual animal points
+        - de-spine the top, right, and bottom edges
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame with columns "feature", "weight_class", "weight".
+            Usually produced by unpack_features_and_weights().
+        ax : matplotlib.axes.Axes
+            Axis to plot on.
+        plot_individuals : bool, optional
+            If True, overlays individual data points on the bar chart.
+        title : str
+            Plot title.
+        kwargs : dict
+            Additional keyword arguments passed to seaborn.barplot().
+        """
+
+        # 1) Barplot with horizontal orientation:
+        #    x="weight", y="feature", and hue="weight_class".
+        sns.barplot(
+            x="weight",
+            y="feature",
+            hue="weight_class",
+            data=df,
+            ax=ax,
+            orient="h",    # or orientation="horizontal" in newer seaborn versions
+            fill=False,    # matches your existing style
+            errorbar="se",
+            **kwargs
+        )
+
+        # 2) Optional scatter points (stripplot) over barplot
+        if plot_individuals:
+            sns.stripplot(
+                x="weight",
+                y="feature",
+                hue="weight_class",
+                data=df,
+                ax=ax,
+                orient="h",        # make it horizontal
+                dodge=True,
+                alpha=0.5,
+                legend=False,      # avoid duplicate legend
+                **kwargs
+            )
+
+        # 3) Draw a vertical line at x=0 for reference
+        ax.axvline(x=0, color="black")
+
+        # 4) Set axis labels and title
+        ax.set(
+            xlabel="Weight",
+            ylabel="",
+            title=title
+        )
+
+        # 5) De-spine top, right, and bottom so only the left spine remains
+        sns.despine(ax=ax, top=True, right=True, bottom=False, left=False)
+
+        return None
+    
 
 
 class ModelVisualizerTauSweep(ModelVisualizer):
@@ -729,6 +823,9 @@ class ModelVisualizerCompare(ModelVisualizer):
             .apply(self._calculate_bits_per_trial)
             .reset_index(drop=True)
         )
+        # Compute the extra columns relative to the base model.
+        bits_per_trial_df = self._compute_relative_columns(bits_per_trial_df)
+
 
         self.bits_per_trial_df = bits_per_trial_df
 
@@ -779,6 +876,31 @@ class ModelVisualizerCompare(ModelVisualizer):
 
         group["bits_per_trial"] = bits_per_trial
         return group
+    
+    def _compute_relative_columns(self, df):
+        """
+        For each animal, compute:
+        - bits_per_trial_relative_to_base: the difference between the model's
+            bits_per_trial and the base model's bits_per_trial.
+        - likelihood_ratio_relative_to_base: 2^( (delta_bits_per_trial) * n_test_trials )
+        """
+        def process_group(group):
+            # Find the "base" model row for this animal
+            base_rows = group[group['model_name'] == 'base']
+            if base_rows.empty:
+                raise ValueError("Animal {} does not have a 'base' model entry.".format(group['animal_id'].iloc[0]))
+            base_bits = base_rows['bits_per_trial'].iloc[0]
+            n_test_trials = group['n_test_trials'].iloc[0]
+            # Compute the relative bits value and then the likelihood ratio
+            group = group.copy()  # work on a copy
+            group['bits_per_trial_relative_to_base'] = group['bits_per_trial'] - base_bits
+            # Multiply the relative difference (bits/trial) by the number of test trials and exponentiate with base 2.
+            group['likelihood_ratio_relative_to_base'] = 2 ** (group['bits_per_trial_relative_to_base'] * n_test_trials)
+            return group
+
+        # Apply per animal group
+        df = df.groupby("animal_id").apply(process_group).reset_index(drop=True)
+        return df    
 
     def compute_delta_ll_pivot(self, base_model_name, new_model_name, value):
         best_fit_df = self.find_best_fit(["animal_id", "model_name"])
@@ -803,10 +925,153 @@ class ModelVisualizerCompare(ModelVisualizer):
         )
 
         return train_test_df
+    
+    def compute_overall_ll_ratio(self, base_model_name: str, new_model_name: str) -> dict:
+        """
+        Compute the overall likelihood ratio comparing a new model to a base model,
+        pooling across all animals.
 
+        The metric is computed by summing for each animal:
+        
+            delta_bits_i = (log_like_new_i - log_like_base_i) / ln(2).
+        
+        The overall likelihood ratio is:
+        
+            LR = 2^(sum_i delta_bits_i).
+        
+        Because this number can be astronomically large, we also compute the base-10 logarithm:
+        
+            log10(LR) = (sum_i delta_bits_i) * log10(2).
+        
+        Parameters
+        ----------
+        base_model_name : str
+            The model name corresponding to the base model.
+        new_model_name : str
+            The model name of the new model to compare.
+
+        Returns
+        -------
+        result : dict
+            Dictionary with keys:
+                - "overall_ratio": overall likelihood ratio (float; may be inf if too large)
+                - "log10_overall_ratio": the base-10 log of the overall likelihood ratio (finite value)
+        """
+        # Ensure that we have the combined dataframe available
+        if not hasattr(self, "all_models_df"):
+            self.concat_null_and_fit_models_dfs()
+
+        overall_diff_bits = 0.0
+        n_animals = 0
+        
+        # Process per animal:
+        for animal_id, group in self.all_models_df.groupby("animal_id"):
+            base_model_rows = group[group["model_name"] == base_model_name]
+            new_model_rows = group[group["model_name"] == new_model_name]
+            # Only include the animal if both models exist.
+            if base_model_rows.empty or new_model_rows.empty:
+                continue
+            base_row = base_model_rows.iloc[0]
+            new_row = new_model_rows.iloc[0]
+            diff = new_row["log_like"] - base_row["log_like"]  # natural log difference
+            diff_bits = diff / np.log(2)  # convert to bits
+            overall_diff_bits += diff_bits
+            n_animals += 1
+
+        if n_animals == 0:
+            raise ValueError("No animals have both the base and new model entries.")
+
+        # Compute the overall likelihood ratio in log10 scale.
+        log10_overall_ratio = overall_diff_bits * math.log10(2)
+        
+        # Try to compute the raw overall ratio; if it overflows, return infinity.
+        try:
+            overall_ratio = 2 ** overall_diff_bits
+        except OverflowError:
+            overall_ratio = float("inf")
+        # Alternatively, you might check:
+        if np.isinf(2 ** overall_diff_bits):
+            overall_ratio = float("inf")
+        
+        return {
+            "overall_ratio": overall_ratio,
+            "log10_overall_ratio": log10_overall_ratio
+        }
+
+    def compute_geometric_mean_ll_ratio(self, base_model_name: str, new_model_name: str, threshold_bits: float = 700) -> dict:
+        """
+        Compute the geometric mean of the per-animal likelihood ratios comparing a new model
+        to a base model. 
+        
+        For each animal i the per-animal likelihood ratio is calculated as:
+        
+            LR_i = exp( log_like_new_i - log_like_base_i )
+                = 2^( (log_like_new_i - log_like_base_i) / ln 2 )
+        
+        The geometric mean (GM) is then:
+        
+            GM = exp( (1/N) * Σ_i (log_like_new_i - log_like_base_i) )
+        
+        Parameters
+        ----------
+        base_model_name : str
+            The model name corresponding to the base model.
+        new_model_name : str
+            The model name of the new model to compare.
+        threshold_bits : float, optional
+            If the average per-animal improvement (in natural log) is larger than this threshold,
+            the raw geometric mean ratio is set to infinity to avoid overflow. Default is 700.
+        
+        Returns
+        -------
+        result : dict
+            Dictionary with keys:
+            - "geometric_mean_ratio": the geometric mean of the likelihood ratios (raw value; may be inf)
+            - "log10_geometric_mean_ratio": the base-10 logarithm of the geometric mean ratio.
+        
+        Raises
+        ------
+        ValueError
+            If no animal has entries for both the base and new models.
+        """
+        import math
+        diffs = []  # this will store delta = log_like_new - log_like_base for each animal
+        # Group by animal and process each one
+        for animal_id, group in self.all_models_df.groupby("animal_id"):
+            base_rows = group[group["model_name"] == base_model_name]
+            new_rows = group[group["model_name"] == new_model_name]
+            # Only consider animals that have both model entries.
+            if base_rows.empty or new_rows.empty:
+                continue
+            base_row = base_rows.iloc[0]
+            new_row = new_rows.iloc[0]
+            diff = new_row["log_like"] - base_row["log_like"]  # natural log difference for the animal
+            diffs.append(diff)
+        
+        if not diffs:
+            raise ValueError("No animals have both the base and new model entries.")
+        
+        # Compute the average (mean) difference across animals.
+        mean_diff = sum(diffs) / len(diffs)
+        
+        # Compute the geometric mean ratio: GM = exp(mean_diff)
+        try:
+            gm_ratio = math.exp(mean_diff)
+            if mean_diff > threshold_bits:
+                gm_ratio = float("inf")
+        except OverflowError:
+            gm_ratio = float("inf")
+        
+        # Compute the log10 of the geometric mean ratio.
+        log10_gm_ratio = mean_diff / math.log(10)
+        
+        return {
+            "geometric_mean_ratio": gm_ratio,
+            "log10_geometric_mean_ratio": log10_gm_ratio
+        }
     # PLOTS
     def plot_model_comparison(
-        self, type="point", hue=None, ax=None, ylim=None, **kwargs
+        self, y="bits_per_trial", type="point", hue=None, ax=None, ylim=None, ylabel="bits/trial", **kwargs
     ):
         """
         Plot the model comparison (delta bits/trial for the null
@@ -814,6 +1079,8 @@ class ModelVisualizerCompare(ModelVisualizer):
 
         params
         ------
+        y : str, default = "bits_per_trial"
+            column name to use for y-axis
         type : str
             type of plot to use. "point" or "bar"
         hue : str, default = None
@@ -822,6 +1089,7 @@ class ModelVisualizerCompare(ModelVisualizer):
             axes to plot on
         ylim : tuple, default = None
             y-axis limits
+        ylabel : str, default = "bits/trial"
         kwargs : dict
             keyword arguments to pass to seaborn.pointplot or
             seaborn.barplot
@@ -837,7 +1105,7 @@ class ModelVisualizerCompare(ModelVisualizer):
             sns.pointplot(
                 data=self.bits_per_trial_df.query("model_name != 'null'"),
                 x="model_name",
-                y="bits_per_trial",
+                y=y,
                 hue=hue,
                 ax=ax,
                 **kwargs,
@@ -846,7 +1114,7 @@ class ModelVisualizerCompare(ModelVisualizer):
             sns.barplot(
                 data=self.bits_per_trial_df.query("model_name != 'null'"),
                 x="model_name",
-                y="bits_per_trial",
+                y=y,
                 hue=hue,
                 ax=ax,
                 **kwargs,
@@ -858,7 +1126,7 @@ class ModelVisualizerCompare(ModelVisualizer):
             ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0)
         plt.xlabel("Model")
         plt.xticks(rotation=25)
-        plt.ylabel("Bits/Trial")
+        plt.ylabel(ylabel)
 
         if ylim is not None:
             ax.set(ylim=ylim)

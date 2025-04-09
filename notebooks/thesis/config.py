@@ -1,7 +1,13 @@
+import seaborn as sns
 # VALID_PALETTE = ["#e1c63c", "#75b6df"]
 HIT_COLOR = "green"
 VIOLATION_COLOR = "#e1c63c"
 N_SESSION_COLOR = "gray"
 N_TRIAL_COLOR ="purple"
+
+LEFT_COLOR = "salmon"
+RIGHT_COLOR = "cornflowerblue"
+MULTI_CHOICE_PAL = [LEFT_COLOR, RIGHT_COLOR, VIOLATION_COLOR]
+MODEL_COMPARE_COLOR = "k"
 
 PYSCHOMETRIC_ANIMALS = ['W060', 'W066', 'W068', 'W073', 'W074', 'W075', 'W080', 'W081', 'W082', 'W083', 'W088', 'W089']
