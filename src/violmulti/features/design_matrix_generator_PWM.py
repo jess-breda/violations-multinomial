@@ -167,6 +167,21 @@ def stim_filt_viol_intrx(df, stim_name, tau):
 
     return intrx_col
 
+def stim_filt_binary_intrx(df, stim_name):
+    """
+    Function to create an interaction feature between a
+    stimulus term ("s_a", or "s_b") and a filtered previous
+    violation term.
+    """
+
+    binary_viol_col = prev_violation(df)
+
+    stim_col = standardize(df[stim_name])
+
+    intrx_col = combine_two_cols(stim_col, binary_viol_col, operator.mul)
+
+    return intrx_col
+
 
 def get_animals_tau(df, var_name):
 
