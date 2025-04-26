@@ -408,6 +408,7 @@ class ModelVisualizer:
 
     def plot_weights_summary(
         self,
+        style="bar",
         orientation="v",
         df=None,
         ax=None,
@@ -463,22 +464,76 @@ class ModelVisualizer:
         if seed is not None and plot_individuals:
             np.random.seed(seed)
 
-        if orientation == "vertical" or orientation == "v":
-            if ax is None:
-                fig, ax = plt.subplots(figsize=(12, 6))
-            self.plot_weights(df, ax, plot_individuals=plot_individuals,title=title, **kwargs)
-        elif orientation == "horizontal" or orientation == "h":
-            if ax is None:
-                fig, ax = plt.subplots(figsize=(6, 12))
-            self.plot_weights_horizontal(df, ax,
-             plot_individuals=plot_individuals,
-             title=title,
-             **kwargs)
-        else:
-            raise ValueError(f"Invalid orientation: {orientation}")
+        if style == "bar":
+
+            if orientation == "vertical" or orientation == "v":
+                if ax is None:
+                    fig, ax = plt.subplots(figsize=(12, 6))
+                self.plot_weights(df, ax, plot_individuals=plot_individuals,title=title, **kwargs)
+            elif orientation == "horizontal" or orientation == "h":
+                if ax is None:
+                    fig, ax = plt.subplots(figsize=(6, 12))
+                self.plot_weights_horizontal(df, ax,
+                plot_individuals=plot_individuals,
+                title=title,
+                **kwargs)
+            else:
+                raise ValueError(f"Invalid orientation: {orientation}")
+        elif style == "point":
+            self.plot_weights_point(df, ax, plot_individuals=plot_individuals,title=title, **kwargs)
 
         return None
     
+    @staticmethod
+    def plot_weights_point(df, ax, plot_individuals=False, title="", **kwargs):
+        """
+        Workhorse function for plotting weights across features
+        and classes with a point plot similar to Iris & Zoe's
+        formatting for GLMHMM
+
+        params
+        ------
+        df : pd.DataFrame
+            dataframe with columns "feature", "weight_class", "weight"
+            row indexed by animal id, feature and weight class
+            created by unpack_features_and_weights()
+        ax : matplotlib axis
+            axis to plot on.
+        title : str (default="")
+            title of plot
+        kwargs : dict
+            additional keyword arguments to pass to seaborn.barplot()
+        """
+
+        sns.pointplot(
+            x="feature",
+            y="weight",
+            hue="weight_class",
+            data=df,
+            ax=ax,
+            **kwargs,
+        )
+        if plot_individuals:
+            sns.stripplot(
+                x="feature",
+                y="weight",
+                hue="weight_class",
+                data=df,
+                ax=ax,
+                dodge=False,
+                alpha=0.5,
+                legend=False,
+                **kwargs,
+            )
+        ax.axhline(y=0, color="black")
+
+        _ = ax.set_xticks(
+            ax.get_xticks(), ax.get_xticklabels(), rotation=45, ha="center"
+        )
+        _ = ax.set(xlabel="", ylabel="GLM Weight", title=title)
+
+        sns.despine()
+        return None
     @staticmethod
     def plot_weights_horizontal(df, ax, plot_individuals=False, title="", **kwargs):
         """
@@ -563,7 +618,7 @@ class ModelVisualizerTauSweep(ModelVisualizer):
     def save_best_fit_tau(
         self,
         var_name,
-        save_path="/Users/jessbreda/Desktop/github/animal-learning/data/processed/tau_sweeps/taus_df.csv",
+        save_path="/Users/jessbreda/Desktop/github/violations-multinomial/data/processed/tau_sweeps/taus_df.csv",
     ):
 
         tau_df = self.find_best_fit(group="animal_id")[["animal_id", "tau"]]
@@ -577,7 +632,7 @@ class ModelVisualizerTauSweep(ModelVisualizer):
         except FileNotFoundError:
             pass
 
-        tau_df.to_csv("../data/processed/tau_sweeps/taus_df.csv", index=False)
+        tau_df.to_csv(save_path, index=False)
 
         print(f"Saved {var_name} taus to taus_df.csv")
 
@@ -708,7 +763,7 @@ class ModelVisualizerTauSweep(ModelVisualizer):
             ax.get_xticks(), ax.get_xticklabels(), rotation=90, ha="right"
         )
         _ = ax.set(ylabel="Best tau", xlabel="")
-        ax.get_legend().set_visible(False)
+        ax.legend().remove()
 
         return None
 
@@ -1071,7 +1126,7 @@ class ModelVisualizerCompare(ModelVisualizer):
         }
     # PLOTS
     def plot_model_comparison(
-        self, y="bits_per_trial", type="point", hue=None, ax=None, ylim=None, ylabel="bits/trial", **kwargs
+        self, y="bits_per_trial", type="point", hue=None, ax=None, ylim=None, ylabel="bits/trial", annotate=False, y_annotate=0,color_annotate="k", **kwargs
     ):
         """
         Plot the model comparison (delta bits/trial for the null
@@ -1090,6 +1145,12 @@ class ModelVisualizerCompare(ModelVisualizer):
         ylim : tuple, default = None
             y-axis limits
         ylabel : str, default = "bits/trial"
+        annotate : bool, default = False
+            whether to annotate the y-variable for model_name != base
+        y_annotate : float, default = 0
+            y-position for the annotation text
+        color_annotate : str, default = k
+            color of the annotation text
         kwargs : dict
             keyword arguments to pass to seaborn.pointplot or
             seaborn.barplot
@@ -1101,9 +1162,11 @@ class ModelVisualizerCompare(ModelVisualizer):
         if not hasattr(self, "bits_per_trial_df"):
             self.compute_bits_per_trial_df()
 
+        plot_data = self.bits_per_trial_df.query("model_name != 'null'")
+
         if type == "point":
             sns.pointplot(
-                data=self.bits_per_trial_df.query("model_name != 'null'"),
+                data=plot_data,
                 x="model_name",
                 y=y,
                 hue=hue,
@@ -1112,13 +1175,24 @@ class ModelVisualizerCompare(ModelVisualizer):
             )
         elif type == "bar":
             sns.barplot(
-                data=self.bits_per_trial_df.query("model_name != 'null'"),
+                data=plot_data,
                 x="model_name",
                 y=y,
                 hue=hue,
                 ax=ax,
                 **kwargs,
             )
+
+        if annotate:
+            for i, model_name in enumerate(plot_data["model_name"].unique()):
+                if model_name != plot_data["model_name"].unique()[0]:  # Skip the base model
+                    x_position = i
+                    y_value = plot_data[plot_data["model_name"] == model_name][y].mean()
+                    if y_value > 0:
+                        # add a + sign to the text
+                        ax.text(x_position, y_annotate, f"+{y_value:.4f}", ha='center', color=color_annotate)
+                    else:
+                        ax.text(x_position, y_annotate, f"{y_value:.4f}", ha='center', color=color_annotate)
 
         if hue == "animal_id":
             ax.legend().remove()
