@@ -1,6 +1,6 @@
 import seaborn as sns
 # VALID_PALETTE = ["#e1c63c", "#75b6df"]
-HIT_COLOR = "green"
+HIT_COLOR = "lime"
 VIOLATION_COLOR = "#e1c63c"
 N_SESSION_COLOR = "gray"
 N_TRIAL_COLOR ="purple"
@@ -9,6 +9,7 @@ LEFT_COLOR = "salmon"
 RIGHT_COLOR = "cornflowerblue"
 MULTI_CHOICE_PAL = [LEFT_COLOR, RIGHT_COLOR, VIOLATION_COLOR]
 MODEL_COMPARE_COLOR = "darkblue"
+BINARY_MODEL_COMPARE_COLOR = "lightseagreen"
 
 PREV_VIOLATION_COLOR = "#93c47d"
 PREV_VIOLATION_FILTER_COLOR = "#38761d"
