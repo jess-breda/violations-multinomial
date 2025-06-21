@@ -1126,7 +1126,7 @@ class ModelVisualizerCompare(ModelVisualizer):
         }
     # PLOTS
     def plot_model_comparison(
-        self, y="bits_per_trial", type="point", hue=None, ax=None, ylim=None, ylabel="bits/trial", annotate=False, y_annotate=0,color_annotate="k", **kwargs
+        self, plot_data=None, y="bits_per_trial", type="point", hue=None, ax=None, ylim=None, ylabel="bits/trial", annotate=False, y_annotate=0,color_annotate="k", **kwargs
     ):
         """
         Plot the model comparison (delta bits/trial for the null
@@ -1162,7 +1162,8 @@ class ModelVisualizerCompare(ModelVisualizer):
         if not hasattr(self, "bits_per_trial_df"):
             self.compute_bits_per_trial_df()
 
-        plot_data = self.bits_per_trial_df.query("model_name != 'null'")
+        if plot_data is None:
+            plot_data = self.bits_per_trial_df.query("model_name != 'null'")
 
         if type == "point":
             sns.pointplot(

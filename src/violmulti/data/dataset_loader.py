@@ -56,6 +56,8 @@ class DatasetLoader:
         """
         if self.data_type == "new_trained":
             self.load_function = self.load_new_trained
+        elif self.data_type == "new_trained_cleaned":
+            self.load_function = self.load_new_trained_cleaned
         elif self.data_type == "new_all":
             self.load_function = self.load_new_all
         elif self.data_type == "new_match_old_viols":
@@ -70,6 +72,13 @@ class DatasetLoader:
     def load_data(self):
         print("DataLoader: Loading data for animal ids: ", self.animal_ids)
         return self.load_function()
+
+    def load_new_trained_cleaned(self):
+        data = pd.read_parquet(
+            self.data_path + "/processed/all_animals_trained_threshold_cleaned.parquet"
+        )
+        data = data.query("animal_id in @self.animal_ids").copy()
+        return data
 
     def load_new_trained(self):
         # also exists at .csv but load is too slow from cup, eventually

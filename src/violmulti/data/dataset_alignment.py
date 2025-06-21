@@ -909,9 +909,12 @@ class PostAlignmentVisualizer:
         return pd.concat(dfs, axis=0, ignore_index=True)
 
     def compute_and_plot_delta(
-        self, source_a, source_b, column_name, ax=None, title=None, **kwargs
+        self, source_a, source_b, column_name, ax=None, title=None, scale_by_100=False, **kwargs
     ):
         delta_df = self.compute_df_delta(source_a, source_b, column_name)
+
+        if scale_by_100:
+            delta_df[f"delta_{column_name}"] *= 100
 
         self.plot_deltas(
             source_a, source_b, column_name, delta_df, ax=ax, title=title, **kwargs
