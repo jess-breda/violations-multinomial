@@ -23,7 +23,7 @@ class DatasetLoader:
     def __init__(
         self,
         animal_ids=None,
-        data_type="new_trained",
+        data_type="new_trained_cleaned",
         data_path="/Users/jessbreda/Desktop/github/violations-multinomial/data",
     ):
         if animal_ids is None:
@@ -70,7 +70,12 @@ class DatasetLoader:
         return self.load_function
 
     def load_data(self):
-        print("DataLoader: Loading data for animal ids: ", self.animal_ids)
+        print(
+            "DataLoader: Loading data type: ",
+            self.data_type,
+            " for animal ids: ",
+            self.animal_ids,
+        )
         return self.load_function()
 
     def load_new_trained_cleaned(self):
