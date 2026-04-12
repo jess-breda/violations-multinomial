@@ -31,6 +31,12 @@ from violmulti.data.dataset_loader import DatasetLoader
 from violmulti.data import ANIMAL_IDS
 from violmulti.features.design_matrix_generator_PWM import DesignMatrixGeneratorPWM
 
+import warnings
+from scipy.optimize import OptimizeWarning
+
+# Suppress OptimizeWarning
+warnings.filterwarnings("ignore", category=OptimizeWarning)
+
 
 class Experiment:
     def __init__(self, params):

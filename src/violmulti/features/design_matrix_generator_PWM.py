@@ -183,11 +183,15 @@ def stim_filt_binary_intrx(df, stim_name):
     return intrx_col
 
 
-def get_animals_tau(df, var_name):
+def get_animals_tau(df, var_name, save_path):
 
-    taus_df = pd.read_csv(
-        "/Users/jessbreda/Desktop/github/violations-multinomial/data/processed/tau_sweeps/taus_df.csv"
-    )
+
+    if save_path is None:
+        taus_df = pd.read_csv(
+            "/Users/jessbreda/Desktop/github/violations-multinomial/data/processed/tau_sweeps/taus_df.csv"
+        )
+    else:
+        taus_df = pd.read_csv(save_path)
 
     # design matrix generator checks tests for single animal requirement in df
     animal_id = df.animal_id.iloc[0]

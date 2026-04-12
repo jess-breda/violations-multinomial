@@ -16,4 +16,7 @@ PREV_VIOLATION_FILTER_COLOR = "#38761d"
 
 PYSCHOMETRIC_ANIMALS = ['W060', 'W066', 'W068', 'W073', 'W074', 'W075', 'W080', 'W081', 'W082', 'W083', 'W088', 'W089']
 
+DATA_PATH = "/Users/jessbreda/Desktop/github/violations-multinomial/notebooks/publication/data/"
+MODEL_FITS_PATH = DATA_PATH + "model_fits/"
+
 

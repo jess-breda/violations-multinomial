@@ -112,7 +112,7 @@ class ModelVisualizer:
 
     def unpack_row(self, row):
         """
-        Unpacks the "feature" and "weight" columns of a row
+        Unpacks the "feature", "weight", and (optionally) "tau" columns of a row
         to create a long-form dataframe where each row corresponds
         to an animal_id, feature. Note this function is flexible
         to the number of classes.
@@ -121,27 +121,30 @@ class ModelVisualizer:
         ----------
         row : pd.Series
             A row of a pandas DataFrame with "feature" and "weight"
-            columns as arrays.
+            columns as arrays. Optionally may include a "tau" column.
         """
         weights = row["weights"]
 
         # Check if weights are a 1D array (vector) and adjust accordingly
         if weights.ndim == 1:
-            # For a 1D array, treat it as having a single class
             n_classes = 1
         else:
-            # For a 2D array, use it as is
             n_classes = weights.shape[1]
 
-        temp_df = pd.DataFrame(
-            {
-                "animal_id": row["animal_id"],
-                "sigma": row["sigma"],
-                "model_name": row["model_name"],
-                "nll": row["nll"],
-                "feature": row["features"],
-            }
-        )
+        # Prepare base columns
+        base_dict = {
+            "animal_id": row["animal_id"],
+            "sigma": row["sigma"],
+            "model_name": row["model_name"],
+            "nll": row["nll"],
+            "feature": row["features"],
+        }
+
+        # If tau column is present, add it to the DataFrame
+        if "tau" in row:
+            base_dict["tau"] = row["tau"]
+
+        temp_df = pd.DataFrame(base_dict)
 
         if n_classes == 3:
             class_names = ["L", "R", "V"]
@@ -151,7 +154,6 @@ class ModelVisualizer:
             class_names = [f"weight_class_{i+1}" for i in range(n_classes)]
 
         for i in range(n_classes):
-            # Adjust the indexing for both 1D and 2D arrays
             temp_df[class_names[i]] = (
                 weights[:, i] if n_classes > 1 else weights.flatten()
             )
@@ -1126,7 +1128,7 @@ class ModelVisualizerCompare(ModelVisualizer):
         }
     # PLOTS
     def plot_model_comparison(
-        self, plot_data=None, y="bits_per_trial", type="point", hue=None, ax=None, ylim=None, ylabel="bits/trial", annotate=False, y_annotate=0,color_annotate="k", **kwargs
+        self, plot_data=None, y="bits_per_trial", type="point", hue=None, ax=None, ylim=None, ylabel="bits/trial", annotate=False, y_annotate=0, color_annotate="k", **kwargs
     ):
         """
         Plot the model comparison (delta bits/trial for the null
@@ -1165,6 +1167,13 @@ class ModelVisualizerCompare(ModelVisualizer):
         if plot_data is None:
             plot_data = self.bits_per_trial_df.query("model_name != 'null'")
 
+        # Determine the order of model names for plotting and annotation
+        order = kwargs.get("order", None)
+        if order is None:
+            model_order = list(plot_data["model_name"].unique())
+        else:
+            model_order = order
+
         if type == "point":
             sns.pointplot(
                 data=plot_data,
@@ -1185,8 +1194,17 @@ class ModelVisualizerCompare(ModelVisualizer):
             )
 
         if annotate:
-            for i, model_name in enumerate(plot_data["model_name"].unique()):
-                if model_name != plot_data["model_name"].unique()[0]:  # Skip the base model
+            # The first model in the order is considered the base model
+            if order is not None and len(order) > 0:
+                base_model = order[0]
+                model_iter = enumerate(order)
+            else:
+                # If no order is provided, use the unique model names in plot_data
+                model_names = list(plot_data["model_name"].unique())
+                base_model = model_names[0] if len(model_names) > 0 else None
+                model_iter = enumerate(model_names)
+            for i, model_name in model_iter:
+                if model_name != base_model:  # Skip the base model
                     x_position = i
                     y_value = plot_data[plot_data["model_name"] == model_name][y].mean()
                     if y_value > 0:
